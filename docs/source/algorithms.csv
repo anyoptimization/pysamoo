@@ -1,0 +1,11 @@
+Algorithm,Framework,multi-objective,constrained,Description
+`SSA-NSGA-II <#SSA-NSGA-II>`_,None,yes,yes,A simple surrogate-assisted variant of the well-known NSGA-II algorithm.
+`PSAF-GA <#PSAF-GA>`_,PSAF,no,no,An implementation using genetic algorithms assisted by surrogates.
+`PSAF-DE <#PSAF-DE>`_,PSAF,no,no,An implementation of surrogate-assisted particle swarm optimization.
+`PSAF-CMAES <#PSAF-CMAES>`_,PSAF,no,no,The popular CMAES method with surrogate assistance.
+`GPSAF-GA <#PSAF-GA>`_,GPSAF,no,yes,An implementation using genetic algorithms assisted by surrogates with constrained handling
+`GPSAF-DE <#PSAF-DE>`_,GPSAF,no,yes,An implementation of surrogate-assisted particle swarm optimization with constrained handling.
+`GPSAF-CMAES <#PSAF-CMAES>`_,GPSAF,no,no,The popular CMAES method with surrogate assistance.
+`GPSAF-ISRES <#GPSAF-ISRES>`_, GPSAF,no,yes,"A surrogate-assisted variant of ISRES, a well known algorithm for constrained single-objective optimization problems"
+`GPSAF-NSGA-II <#GPSAF-NSGA-II>`_, GPSAF,yes,yes,"A surrogate-assisted variant of NSGA-II, a well known algorithm for bi-objective optimization"
+`GPSAF-NSGA-III <#GPSAF-NSGA-III>`_, GPSAF,yes,yes,An extension of GPSAF-NSGA-II for many-objective optimization problems.
