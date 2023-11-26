@@ -21,7 +21,7 @@ data = dict(
     description="Surrogate-Assisted Multi-objective Optimization",
     license='GNU AFFERO GENERAL PUBLIC LICENSE (AGPL)',
     keywords="surrogate, metamodel, bayesian optimization",
-    install_requires=["pymoo==0.6.1", "ezmodel"],
+    install_requires=["pymoo==0.6.1.1", "ezmodel"],
     platforms='any',
     classifiers=[
         'Intended Audience :: Developers',

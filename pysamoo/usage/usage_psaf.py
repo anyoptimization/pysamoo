@@ -16,7 +16,7 @@ if __name__ == "__main__":
         problem,
         algorithm,
         ('n_evals', 300),
-        seed=1,
+        seed=2,
         verbose=True)
 
     print("Best solution found: \nX = %s\nF = %s\nCV=%s" % (res.X, res.F, res.CV))

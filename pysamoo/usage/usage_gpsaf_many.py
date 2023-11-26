@@ -3,6 +3,7 @@ from pymoo.optimize import minimize
 from pymoo.problems import get_problem
 from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.visualization.scatter import Scatter
+
 from pysamoo.algorithms.gpsaf import GPSAF
 
 problem = get_problem("dtlz2", n_var=10)
