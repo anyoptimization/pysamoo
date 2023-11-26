@@ -4,16 +4,19 @@ from ezmodel.core.factory import models_from_clazzes
 from ezmodel.core.selection import ModelSelection
 from ezmodel.models.kriging import Kriging
 from ezmodel.util.partitioning.crossvalidation import CrossvalidationPartitioning
-
 from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
 from pymoo.algorithms.soo.nonconvex.ga_niching import NicheGA
 from pymoo.core.callback import Callback
 from pymoo.core.population import Population
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.optimize import minimize
-from pymoo.util.display import Display
+from pymoo.termination.default import DefaultSingleObjectiveTermination
+from pymoo.util.display.column import Column
+
+from pymoo.util.display.output import Output
+from pymoo.util.display.single import SingleObjectiveOutput
 from pymoo.util.normalization import ZeroToOneNormalization
-from pymoo.util.termination.default import SingleObjectiveDefaultTermination
+
 from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.experimental.acquisition import EI, AcquisitionProblem
 
@@ -23,35 +26,43 @@ from pysamoo.experimental.acquisition import EI, AcquisitionProblem
 # ---------------------------------------------------------------------------------------------------------
 
 
-class EGODisplay(Display):
+class EGOOutput(SingleObjectiveOutput):
 
-    def _do(self, problem, evaluator, algorithm):
-        super()._do(problem, evaluator, algorithm)
-        self.output.append("f_opt", algorithm.opt[0].F[0])
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.output = SingleObjectiveOutput()
 
-        if algorithm.acq is None:
-            self.output.append("f_new", "-")
-            self.output.append("acq", "-")
+        self.f_new = Column(name="f_new")
+        self.acq = Column(name="acq")
 
-            if algorithm.model_selection:
-                self.output.append("regr", "-")
-                self.output.append("corr", "-")
-                self.output.append("ARD", "-")
-        else:
-            self.output.append("f_new", algorithm.infills.get("F").min())
-            self.output.append("acq", - algorithm.infills[0].get("acq"))
+        self.model = [Column(name="acq", func=lambda a: a.surrogate.regr),
+                      Column(name="corr", func=lambda a: a.surrogate.corr),
+                      Column(name="ARD", func=lambda a: a.surrogate.ARD)
+                      ]
 
-            if algorithm.model_selection:
-                gp = algorithm.surrogate
-                self.output.append("regr", gp.regr)
-                self.output.append("corr", gp.corr)
-                self.output.append("ARD", gp.ARD)
+    def initialize(self, algorithm):
+        self.output.initialize(algorithm)
+        self.columns = self.output.columns + [self.f_new, self.acq]
+        if algorithm.model_selection:
+            self.columns += self.model
+
+    def update(self, algorithm):
+        bo = algorithm
+        self.output.update(bo)
+
+        if algorithm.acq is not None:
+
+            self.f_new.set(bo.infills.get("F").min())
+            self.acq.set(bo.infills.get("acq").min())
+
+            if bo.model_selection:
+                for col in self.model:
+                    col.update(bo)
 
 
 # ---------------------------------------------------------------------------------------------------------
 # Implementation
 # ---------------------------------------------------------------------------------------------------------
-
 
 class BayesianOptimization(SurrogateAssistedAlgorithm):
 
@@ -59,11 +70,11 @@ class BayesianOptimization(SurrogateAssistedAlgorithm):
                  acq_func=EI(),
                  model_selection=False,
                  adaptive_fmin=True,
-                 display=EGODisplay(),
+                 output=EGOOutput(),
                  **kwargs):
 
-        super().__init__(display=display, **kwargs)
-        self.default_termination = SingleObjectiveDefaultTermination()
+        super().__init__(output=output, **kwargs)
+        self.default_termination = DefaultSingleObjectiveTermination()
 
         self.model_selection = model_selection
         self.acq_func = acq_func
@@ -73,9 +84,9 @@ class BayesianOptimization(SurrogateAssistedAlgorithm):
     def _infill(self):
 
         # get all the points that have been evaluated yet
-        X, F = self.archive.get("X", "F")
+        X, F = self._archive.get("X", "F")
 
-        # get he problem and the boundaries
+        # get the problem and the boundaries
         problem = self.problem
         xl, xu = problem.bounds()
 
@@ -94,7 +105,7 @@ class BayesianOptimization(SurrogateAssistedAlgorithm):
         if self.adaptive_fmin:
 
             # get the acquisition problem to be optimized
-            acq = robust_fmin_acquisition(problem, model, self.acq_func, self.archive)
+            acq = robust_fmin_acquisition(problem, model, self.acq_func, self._archive)
 
         else:
             # just use the minimum (even though this can lead to precision issues)
@@ -107,7 +118,7 @@ class BayesianOptimization(SurrogateAssistedAlgorithm):
 
         algorithm = NicheGA(pop_size=50, sampling=sampling)
 
-        termination = SingleObjectiveDefaultTermination(nth_gen=1, n_last=5)
+        termination = DefaultSingleObjectiveTermination(period=1)
 
         res = minimize(acq,
                        algorithm,
@@ -119,10 +130,10 @@ class BayesianOptimization(SurrogateAssistedAlgorithm):
 
         self.acq = acq
         self.surrogate = model
-        return Population.new(X=X, acq=F[0])
+        return Population.new(X=X, acq=F)[[0]]
 
     def _set_optimum(self):
-        self.opt = FitnessSurvival().do(self.problem, self.archive, n_survive=1)
+        self.opt = FitnessSurvival().do(self.problem, self._archive, n_survive=1)
 
 
 def robust_fmin_acquisition(problem, model, acq_func, points):

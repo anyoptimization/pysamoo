@@ -5,57 +5,77 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pymoo.algorithms.moo.nsga2 import RankAndCrowdingSurvival
 from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
+from pymoo.core.algorithm import default_termination
 from pymoo.core.duplicate import DefaultDuplicateElimination
 from pymoo.core.evaluator import Evaluator
 from pymoo.core.population import Population
+from pymoo.core.termination import NoTermination
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.operators.selection.tournament import compare
-from pymoo.optimize import default_termination
-from pymoo.util.display import Display
+from pymoo.util.display.column import Column
+from pymoo.util.display.output import Output
 from pymoo.util.dominator import get_relation
 from pymoo.util.misc import norm_eucl_dist, cdist
 from pymoo.util.optimum import filter_optimum
-from pymoo.util.termination.no_termination import NoTermination
 from pymoo.visualization.fitness_landscape import FitnessLandscape
 from pymoo.visualization.video.callback_video import AnimationCallback
 
 from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
-# =========================================================================================================
-# Display
-# =========================================================================================================
 from pysamoo.core.knockout import noisy
 
 
-class GPSAFDisplay(Display):
+# =========================================================================================================
+# Display
+# =========================================================================================================
 
-    def __init__(self, display, **kwargs):
+
+
+class GPSAFOutput(Output):
+
+    def __init__(self, output, **kwargs):
         super().__init__(**kwargs)
-        self.display = display
+        self.output = output
 
-    def _do(self, problem, evaluator, gpasf):
-        self.display.do(problem, evaluator, gpasf.algorithm, show=False)
-        self.output = self.display.output
+        self.n_influenced = Column(name="n_influenced")
+
+        self.mode = None
+        self.mae = Column(name="mae")
+        self.model = Column(name="model", width=60)
+
+        self.mae_f1 = Column(name="mae f1")
+        self.mae_f2 = Column(name="mae f2")
+
+    def initialize(self, algorithm):
+        self.output.initialize(algorithm)
+        self.columns = [e for e in self.output.columns if e.name != 'f_avg'] + [self.n_influenced]
+
+        problem = algorithm.problem
+        if problem.n_obj == 1 and problem.n_constr == 0:
+            self.mode = "soo"
+            self.columns += [self.mae, self.model]
+        elif problem.n_obj == 2 and problem.n_constr == 0:
+            self.mode = "moo"
+            self.columns += [self.mae_f1, self.mae_f2]
+
+    def update(self, algorithm):
+        gpasf = algorithm
+        self.output.update(gpasf)
 
         if gpasf.n_gen > 1:
             surr_infills = Population.create(*gpasf.infills.get("created_by"))
             n_influenced = sum(surr_infills.get("type") == "trace")
-            self.output.append("n_influenced", f"{n_influenced}/{len(surr_infills)}")
-        else:
-            self.output.append("n_influenced", "-")
+            self.n_influenced.set(f"{n_influenced}/{len(surr_infills)}")
 
-        if problem.n_obj == 1 and problem.n_constr == 0:
-            if len(gpasf.surrogate.targets) >= 1:
-                target = gpasf.surrogate.targets[0]
-                self.output.append("mae", target.performance("mae"))
-                self.output.append("model", target.best)
-
-        elif problem.n_obj == 2 and problem.n_constr == 0:
-            if len(gpasf.surrogate.targets) >= 2:
-                perf = gpasf.surrogate.performance("mae")
-                if ("F", 0) in perf:
-                    self.output.append("mae f1", perf[("F", 0)])
-                if ("F", 1) in perf:
-                    self.output.append("mae f2", perf[("F", 1)])
+        if self.mode == 'soo':
+            target = gpasf.surrogate.targets[0]
+            self.mae.set(target.performance("mae"))
+            self.model.set(target.best)
+        elif self.mode == 'moo':
+            perf = gpasf.surrogate.performance("mae")
+            if ("F", 0) in perf:
+                self.mae_f1.set(perf[("F", 0)])
+            if ("F", 1) in perf:
+                self.mae_f2.set(perf[("F", 1)])
 
 
 # =========================================================================================================
@@ -155,13 +175,19 @@ class GPSAF(SurrogateAssistedAlgorithm):
             self.proto.termination = default_termination(problem)
 
         # setup the underlying algorithm
-        self.proto.setup(problem, seed=self.seed, **kwargs)
+        kwargs['seed'] = self.seed
+        self.proto.setup(problem,  **kwargs)
 
         # copy the algorithm object to get started
         self.algorithm = deepcopy(self.proto)
 
         # customize the display to show the surrogate influence
-        self.display = GPSAFDisplay(self.algorithm.display)
+        # self.display = GPSAFOutput(self.algorithm.display)
+        # self.display = Display(output=self.algorithm.display.output)
+        # customize the display to show the surrogate influence
+        self.display = self.algorithm.display
+        self.display.output = GPSAFOutput(self.algorithm.output)
+        self.algorithm.display = lambda _: None
 
         # define the survival for the individuals to keep
         self.survival = FitnessSurvival() if problem.n_obj == 1 else RankAndCrowdingSurvival()
@@ -248,7 +274,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
                     biased = self._infill_prob_tourn(pool, method="tournament", error=error, n_winners=1)[0]
 
                     # check the distance to existing solutions
-                    closest = norm_eucl_dist(self.problem, biased.get("X"), self.archive.get("X")).min()
+                    closest = norm_eucl_dist(self.problem, biased.get("X"), self._archive.get("X")).min()
 
                     # if the solution is in fact new
                     if closest > eps:
@@ -260,7 +286,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
                     else:
                         print("BIASED: TOO CLOSE (SKIP)")
 
-                closest = norm_eucl_dist(self.problem, infills[i].get("X"), self.archive.get("X")).min()
+                closest = norm_eucl_dist(self.problem, infills[i].get("X"), self._archive.get("X")).min()
 
                 # if the solution is in fact new
                 if closest < eps:
@@ -271,7 +297,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
             infills = influenced
 
         # now copy over the infills and set them to have never been evaluated
-        ret = infills.copy(deep=True)
+        ret = deepcopy(infills)
         for e in ret:
             e.reset(data=False)
         ret.set("X", infills.get("X"), "created_by", infills)
@@ -342,7 +368,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
         #     algorithm = deepcopy(self.proto)
         #     print("PROTO")
 
-        # disable the termination to have have enough iterations to continue
+        # disable the termination to have enough iterations to continue
         algorithm.termination = NoTermination()
         algorithm.has_terminated = False
 
@@ -488,7 +514,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
     def _doe(self):
         n_max_doe = self.n_max_doe
 
-        doe = self.archive
+        doe = self._archive
 
         if len(doe) > n_max_doe:
 
@@ -505,7 +531,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
                     s = np.random.choice(c)
                     doe.append(s)
 
-            doe = self.archive[doe]
+            doe = self._archive[doe]
             doe = Population.merge(doe, self.algorithm.pop)
             doe = Population.merge(doe, self.algorithm.opt)
             doe = Population.merge(doe, self.opt)
@@ -515,20 +541,20 @@ class GPSAF(SurrogateAssistedAlgorithm):
             others = []
             if self.problem.has_constraints():
 
-                is_feas = self.archive.get("feas")
+                is_feas = self._archive.get("feas")
                 feas, infeas = np.where(is_feas)[0], np.where(~is_feas)[0]
 
                 for sol in doe:
                     if sol.get("feas"):
                         if len(infeas) > 0:
-                            s = infeas[cdist(sol.get("X")[None, :], self.archive[infeas].get("X"))[0].argmin()]
+                            s = infeas[cdist(sol.get("X")[None, :], self._archive[infeas].get("X"))[0].argmin()]
                             others.append(s)
                     else:
                         if len(feas) > 0:
-                            s = feas[cdist(sol.get("X")[None, :], self.archive[feas].get("X"))[0].argmin()]
+                            s = feas[cdist(sol.get("X")[None, :], self._archive[feas].get("X"))[0].argmin()]
                             others.append(s)
 
-            doe = Population.merge(doe, self.archive[others])
+            doe = Population.merge(doe, self._archive[others])
             doe = DefaultDuplicateElimination().do(doe)
 
         self.doe = doe

@@ -1,4 +1,5 @@
 import numpy as np
+from pymoo.util.display.single import SingleObjectiveOutput
 
 try:
     from smac.facade.func_facade import fmin_smac
@@ -11,7 +12,6 @@ from pymoo.algorithms.base.local import LocalSearch
 from pymoo.core.individual import Individual
 from pymoo.core.population import Population
 from pymoo.operators.sampling.lhs import LatinHypercubeSampling
-from pymoo.util.display import SingleObjectiveDisplay
 from pymoo.util.optimum import filter_optimum
 
 
@@ -29,12 +29,12 @@ class SMAC(LocalSearch):
 
     def __init__(self, x0=None,
                  sampling=LatinHypercubeSampling(),
-                 display=SingleObjectiveDisplay(),
+                 output=SingleObjectiveOutput(),
                  n_sample_points="auto",
                  n_max_sample_points=50,
                  **kwargs):
 
-        super().__init__(x0, sampling, display, n_sample_points, n_max_sample_points, **kwargs)
+        super().__init__(x0, sampling, n_sample_points, n_max_sample_points, output=output, **kwargs)
 
         self.cnt = 0
         self.history = None

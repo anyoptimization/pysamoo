@@ -1,9 +1,9 @@
+from pymoo.core.meta import Meta
 from scipy.stats import norm
 
 # =========================================================================================================
 # Acquisition Functions
 # =========================================================================================================
-from pymoo.problems.meta import MetaProblem
 
 
 class AcquisitionFunction:
@@ -76,7 +76,7 @@ class UCB(AcquisitionFunction):
 # =========================================================================================================
 
 
-class AcquisitionProblem(MetaProblem):
+class AcquisitionProblem(Meta):
 
     def __init__(self,
                  problem,

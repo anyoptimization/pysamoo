@@ -1,40 +1,57 @@
 from copy import deepcopy
 
 import numpy as np
-
-from pymoo.algorithms.moo.nsga2 import RankAndCrowdingSurvival
-from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
-from pymoo.core.evaluator import Evaluator
-from pymoo.core.population import Population
-from pymoo.util.display import Display
-from pymoo.util.dominator import get_relation
-from pymoo.util.misc import norm_eucl_dist
-from pymoo.util.normalization import ZeroToOneNormalization
-from pymoo.util.termination.no_termination import NoTermination
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
-from pysamoo.core.surrogate import Surrogate
-from pysamoo.core.target import Target
 from ezmodel.core.factory import models_from_clazzes
 from ezmodel.models.knn import KNN
 from ezmodel.models.kriging import Kriging
 from ezmodel.models.rbf import RBF
+from pymoo.algorithms.moo.nsga2 import RankAndCrowdingSurvival
+from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
+from pymoo.core.evaluator import Evaluator
+from pymoo.core.population import Population
+from pymoo.core.termination import NoTermination
+from pymoo.util.display.column import Column
+from pymoo.util.display.single import SingleObjectiveOutput
+from pymoo.util.dominator import get_relation
+from pymoo.util.misc import norm_eucl_dist
+from pymoo.util.normalization import ZeroToOneNormalization
+
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
+from pysamoo.core.surrogate import Surrogate
+from pysamoo.core.target import Target
 
 
-class PSAFDisplay(Display):
+class PSAFOutput(SingleObjectiveOutput):
 
-    def __init__(self, display, **kwargs):
+    def __init__(self, output, **kwargs):
         super().__init__(**kwargs)
-        self.display = display
+        self.output = output
 
-    def _do(self, problem, evaluator, psaf):
-        self.display.do(problem, evaluator, psaf.algorithm, show=False)
-        self.output = self.display.output
-        self.output.append("bias", "-" if psaf.bias is None else psaf.bias)
+        self.bias = Column(name="bias", func=lambda a: a.bias)
+        self.r2 = Column(name="r2", func=lambda a: a.r2)
+        self.only_one_mode = False
+        self.mae = Column(name="mae")
+        self.model = Column(name="model",  width=60)
 
+    def initialize(self, algorithm):
+        self.output.initialize(algorithm)
+        self.columns = [e for e in self.output.columns if e.name != 'f_avg'] + [self.r2, self.bias]
+
+        problem = algorithm.problem
         if problem.n_obj == 1 and problem.n_constr == 0:
+            self.only_one_mode = True
+            self.columns += [self.mae, self.model]
+
+    def update(self, algorithm):
+        psaf = algorithm
+        self.output.update(psaf)
+        self.bias.update(psaf)
+        self.r2.update(psaf)
+
+        if self.only_one_mode:
             target = psaf.surrogate.targets[0]
-            self.output.append("mae", target.performance("mae"))
-            self.output.append("model", target.best)
+            self.mae.set(target.performance("mae"))
+            self.model.set(target.best)
 
 
 class PSAF(SurrogateAssistedAlgorithm):
@@ -48,13 +65,18 @@ class PSAF(SurrogateAssistedAlgorithm):
         self.rho = rho
         self.rho_max = rho_max
         self.bias = rho
+        self.r2 = None
 
     def _setup(self, problem, **kwargs):
         assert problem.n_obj == 1 and problem.n_constr == 0, "PSAF only works for unconstrained single-objective problems!"
 
         super()._setup(problem, **kwargs)
-
         self.algorithm.setup(problem, **kwargs)
+
+        # customize the display to show the surrogate influence
+        self.display = self.algorithm.display
+        self.display.output = PSAFOutput(self.algorithm.output)
+        self.algorithm.display = lambda _: None
 
         xl, xu = problem.bounds()
         defaults = dict(norm_X=ZeroToOneNormalization(xl, xu))
@@ -69,9 +91,6 @@ class PSAF(SurrogateAssistedAlgorithm):
         # create the ensemble of surrogates considering objectives and constraints
         targets = [Target(("F", 0), models)]
         self.surrogate = Surrogate(problem, targets)
-
-        # customize the display to show the surrogate influence
-        self.display = PSAFDisplay(self.algorithm.display)
 
         # define the survival for the individuals to keep
         self.survival = FitnessSurvival() if self.problem.n_obj == 1 else RankAndCrowdingSurvival()
@@ -92,7 +111,7 @@ class PSAF(SurrogateAssistedAlgorithm):
         problem, algorithm, surrogate = self.surrogate.problem(), self.algorithm, self.surrogate
 
         # advance the surrogate which results in doing a benchmark and setting the best surrogate combination
-        surrogate.fit(self.archive)
+        surrogate.fit(self._archive)
 
         # set the bias the surrogate is supposed to have - only if greater than zero we do the second phase
         target = surrogate.targets[0]
@@ -178,6 +197,7 @@ class PSAF(SurrogateAssistedAlgorithm):
                         off[i] = cands[i]
 
         self.bias = bias
+        self.r2  = r2
 
         # no only use the X values
         infills = Population.new(X=off.get("X"))
@@ -189,7 +209,7 @@ class PSAF(SurrogateAssistedAlgorithm):
 
     def _advance(self, infills=None, **kwargs):
         # update the surrogate(s) with the new infills points
-        self.surrogate.validate(self.archive, infills, exclude=["baseline"])
+        self.surrogate.validate(self._archive, infills, exclude=["baseline"])
 
         # make a step in the main algorithm with high-fidelity solutions
         self.algorithm.advance(infills=infills, **kwargs)
@@ -198,5 +218,3 @@ class PSAF(SurrogateAssistedAlgorithm):
 
     def _set_optimum(self):
         self.opt = self.algorithm.opt
-
-

@@ -1,10 +1,12 @@
 from collections import Counter
 
 import numpy as np
-from pymoo.constraints.tcv import TotalConstraintViolation
+
 from pymoo.core.population import Population
 from pymoo.core.replacement import ReplacementSurvival
 from pymoo.util.dominator import get_relation
+
+from pysamoo.core.tcv import TotalConstraintViolation
 
 
 def is_better(a, b):

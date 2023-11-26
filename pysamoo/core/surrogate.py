@@ -1,7 +1,7 @@
 import numpy as np
+from pymoo.core.meta import Meta
 
 from pymoo.core.problem import Problem
-from pymoo.problems.meta import MetaProblem
 
 
 class Surrogate:
@@ -51,7 +51,7 @@ class Surrogate:
         return ProblemFromTargets(self._problem, self.targets)
 
 
-class ProblemFromTargets(MetaProblem):
+class ProblemFromTargets(Meta):
 
     def __init__(self, problem, targets, **kwargs):
         super().__init__(problem, **kwargs)

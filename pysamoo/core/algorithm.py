@@ -42,7 +42,7 @@ class SurrogateAssistedAlgorithm(Algorithm):
         self.initialization = Initialization(sampling)
 
         # all solutions that have been evaluated so far
-        self.archive = Population()
+        self._archive = Population()
 
         # here always the most recent infill solutions are stored
         self.infills = None
@@ -95,11 +95,11 @@ class SurrogateAssistedAlgorithm(Algorithm):
 
     def _initialize_advance(self, infills=None, **kwargs):
         self.infills = infills
-        self.archive = Population.merge(self.archive, infills)
+        self._archive = Population.merge(self._archive, infills)
 
     def _advance(self, infills=None, **kwargs):
         self.infills = infills
-        self.archive = Population.merge(self.archive, infills)
+        self._archive = Population.merge(self._archive, infills)
 
 
 class MyNormalization(ZeroToOneNormalization):

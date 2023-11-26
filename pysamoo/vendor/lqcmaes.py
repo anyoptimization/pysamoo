@@ -3,12 +3,9 @@ import warnings
 import numpy as np
 from cma.fitness_models import LQModel, SurrogatePopulationSettings
 from cma.logger import LoggerDummy
-
 from pymoo.algorithms.soo.nonconvex.cmaes import SimpleCMAES
 from pymoo.core.individual import Individual
 from pymoo.core.population import Population
-from pymoo.optimize import minimize
-from pymoo.problems.single import Sphere
 
 
 class lqCMAES(SimpleCMAES):

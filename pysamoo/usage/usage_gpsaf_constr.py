@@ -1,6 +1,7 @@
 from pymoo.algorithms.soo.nonconvex.isres import ISRES
-from pymoo.factory import get_problem
 from pymoo.optimize import minimize
+from pymoo.problems import get_problem
+
 from pysamoo.algorithms.gpsaf import GPSAF
 
 problem = get_problem("g1")

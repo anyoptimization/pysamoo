@@ -1,7 +1,7 @@
 from pymoo.algorithms.moo.nsga3 import NSGA3
-from pymoo.factory import get_reference_directions
 from pymoo.optimize import minimize
 from pymoo.problems.many import C3DTLZ4
+from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.visualization.scatter import Scatter
 from pysamoo.algorithms.gpsaf import GPSAF
 

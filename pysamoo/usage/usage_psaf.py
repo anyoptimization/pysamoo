@@ -1,6 +1,6 @@
 from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.optimize import minimize
-from pymoo.problems.single import Ackley, Sphere
+from pymoo.problems.single import Ackley
 
 from pysamoo.algorithms.psaf import PSAF
 

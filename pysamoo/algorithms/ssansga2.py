@@ -2,7 +2,8 @@ from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.duplicate import DefaultDuplicateElimination
 from pymoo.core.population import Population
 from pymoo.optimize import minimize
-from pymoo.util.display import MultiObjectiveDisplay
+from pymoo.util.display.multi import MultiObjectiveOutput
+# from pymoo.util.output import MultiObjectiveOutput
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.normalization import normalize
 from pymoo.util.roulette import RouletteWheelSelection
@@ -19,10 +20,10 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
                  surr_n_gen=30,
                  surr_eps_elim=1e-6,
                  surr_sampling="current",
-                 display=MultiObjectiveDisplay(),
+                 output=MultiObjectiveOutput(),
                  **kwargs):
 
-        super().__init__(display=display, **kwargs)
+        super().__init__(output=output, **kwargs)
         self.n_infills = n_infills
         self.surr_n_gen = surr_n_gen
         self.surr_pop_size = surr_pop_size
@@ -35,12 +36,12 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
 
     def _infill(self):
 
-        self.surrogate.fit(self.archive)
+        self.surrogate.fit(self._archive)
 
         problem = self.surrogate.problem()
 
         if self.surr_sampling == "current":
-            sampling = self.archive
+            sampling = self._archive
         elif self.surr_sampling == "random":
             sampling = None
         else:
@@ -56,7 +57,7 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
                        seed=1,
                        verbose=False)
 
-        cand = DefaultDuplicateElimination(epsilon=self.surr_eps_elim).do(res.pop, self.archive)
+        cand = DefaultDuplicateElimination(epsilon=self.surr_eps_elim).do(res.pop, self._archive)
 
         if len(cand) <= self.n_infills:
             infills = Population.new(X=cand.get("X"))
@@ -86,9 +87,9 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
         return infills
 
     def _advance(self, infills=None, **kwargs):
-        self.surrogate.validate(self.archive, infills)
+        self.surrogate.validate(self._archive, infills)
         super()._advance(infills, **kwargs)
 
     def _set_optimum(self):
-        nds = NonDominatedSorting().do(self.archive.get("F"), only_non_dominated_front=True)
-        self.opt = self.archive[nds]
+        nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
+        self.opt = self._archive[nds]

@@ -1,4 +1,5 @@
 import numpy as np
+from pymoo.util.display.single import SingleObjectiveOutput
 
 try:
     from GPyOpt.methods import BayesianOptimization
@@ -8,15 +9,14 @@ except:
 from pymoo.core.algorithm import Algorithm
 from pymoo.core.individual import Individual
 from pymoo.core.population import Population
-from pymoo.util.display import SingleObjectiveDisplay
 
 
 class EGO(Algorithm):
 
     def __init__(self,
-                 display=SingleObjectiveDisplay(),
+                 output=SingleObjectiveOutput(),
                  **kwargs):
-        super().__init__(display=display, **kwargs)
+        super().__init__(output=output, **kwargs)
         self.domain, self.func = None, None
 
     def _setup(self, problem, **kwargs):
