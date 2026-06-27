@@ -84,7 +84,7 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
         return infills
 
     def _advance(self, infills=None, **kwargs):
-        self.surrogate.validate(self._archive, infills)
+        self.revalidate(self._archive, infills)
         super()._advance(infills, **kwargs)
 
     def _set_optimum(self):

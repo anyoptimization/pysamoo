@@ -200,8 +200,8 @@ class PSAF(SurrogateAssistedAlgorithm):
         return infills
 
     def _advance(self, infills=None, **kwargs):
-        # update the surrogate(s) with the new infills points
-        self.surrogate.validate(self._archive, infills, exclude=["baseline"])
+        # re-select the surrogate model with the new infill points (lazily; see nth_validate)
+        self.revalidate(self._archive, infills, exclude=["baseline"])
 
         # make a step in the main algorithm with high-fidelity solutions
         self.algorithm.advance(infills=infills, **kwargs)

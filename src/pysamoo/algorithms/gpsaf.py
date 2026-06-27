@@ -479,8 +479,8 @@ class GPSAF(SurrogateAssistedAlgorithm):
 
             self.restart = False
 
-        # validate the current model
-        self.surrogate.validate(trn=self.doe, tst=infills)
+        # re-select the surrogate model (lazily; see nth_validate)
+        self.revalidate(trn=self.doe, tst=infills)
 
         # make a step in the main algorithm with high-fidelity solutions
         self.algorithm.advance(infills=infills, **kwargs)

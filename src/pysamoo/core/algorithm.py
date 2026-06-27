@@ -103,6 +103,22 @@ class SurrogateAssistedAlgorithm(Algorithm):
         if self.n_initial_doe is None:
             self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
 
+    def revalidate(self, *args, **kwargs):
+        """Re-run model selection lazily.
+
+        Cross-validating the whole candidate pool and re-picking the best model
+        (``surrogate.validate``) is the dominant cost, yet the winner rarely
+        changes from one infill to the next. ``nth_validate`` decouples how often
+        we *re-select* from how often we *refit*: the full selection runs only
+        every ``nth_validate``-th call; in between this is a no-op and the current
+        best model is reused (algorithms still ``surrogate.fit`` it on the new data
+        every iteration). ``nth_validate=1`` re-selects every iteration (original
+        behaviour); ``None``/``0`` is treated the same.
+        """
+        self._revalidate_count = getattr(self, "_revalidate_count", 0) + 1
+        if not self.nth_validate or self._revalidate_count % self.nth_validate == 0:
+            self.surrogate.validate(*args, **kwargs)
+
     def _initialize_infill(self):
         # Thread the run's Generator into sampling so the initial DOE is
         # reproducible (pymoo's samplers default to a fresh RNG otherwise).
