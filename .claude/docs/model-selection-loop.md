@@ -39,6 +39,16 @@ Sub-questions (each is a hypothesis in the backlog):
    `ackley`, `rastrigin` (multimodal) and at least one `zdt`/`dtlz` for multi-objective;
    archive sizes n ∈ {40, 80, 160}; seeds {0,1,2,3,4}. Extend the suite only by
    *adding*, never removing.
+   - **Caveat (validate on REAL archives).** The harness trains on uniform random
+     samples generated all at once; a real optimization archive is sequential,
+     clustered near promising regions, and non-stationary. Cost/determinism results
+     are distribution-independent and hold, but **generalization/quality claims
+     (family≈full, racing≈full) must be confirmed on archives produced by actual
+     optimization runs.** Preferred realistic metric: select/fit on iteration *t*'s
+     archive, test on iteration *t+1*'s **actual infills** (the real prediction
+     task). The decisive test is end-to-end: plug a strategy into the real algorithm
+     and compare final IGD/best-F + wall-time. Beware CV leakage from spatial
+     clustering (nearby points across folds → optimistic CV).
 3. **Two baselines stay in every comparison:** `full(38)` (current behaviour,
    generalization reference) and the plain pymoo algorithm with no surrogate
    (does the surrogate still help?).
