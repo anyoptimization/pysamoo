@@ -28,9 +28,9 @@ class Surrogate:
         self._problem = problem
         self.targets = targets if targets is not None else []
 
-    def validate(self, trn=None, tst=None, **kwargs):
+    def validate(self, trn=None, tst=None, random_state=None, **kwargs):
         for target in self.targets:
-            target.validate(trn=trn, tst=tst, **kwargs)
+            target.validate(trn=trn, tst=tst, random_state=random_state, **kwargs)
 
     def fit(self, sols):
         for target in self.targets:

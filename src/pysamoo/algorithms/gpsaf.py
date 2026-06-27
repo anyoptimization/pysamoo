@@ -195,7 +195,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
         super()._initialize_advance(infills=infills, **kwargs)
 
         # validate and check different surrogates to find the best
-        self.surrogate.validate(infills)
+        self.surrogate.validate(infills, random_state=self.random_state)
 
         # now we perform a fake initialization of the algorithm object by providing individuals from LHS
         # fake = self.algorithm.infill()

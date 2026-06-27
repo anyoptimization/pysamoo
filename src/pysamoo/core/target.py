@@ -5,7 +5,6 @@ from copy import deepcopy
 import numpy as np
 from ezmodel.core.benchmark import Benchmark
 from ezmodel.core.partitioning import merge_and_partition
-from ezmodel.util.partitioning.crossvalidation import CrossvalidationPartitioning
 from pymoo.util.misc import from_dict
 from pymoo.util.sliding_window import SlidingWindow
 
@@ -64,16 +63,27 @@ class Target:
         # the best model set by the last validation
         self.best = None
 
-    def validate(self, trn, tst=None, find_best=True, **kwargs):
+    def _cv_folds(self, n, random_state=None):
+        """Build k-fold (train, test) index partitions.
+
+        Points are shuffled before strided assignment so a fold is never biased
+        toward the order in which the optimizer produced points (early-exploration
+        vs late-exploitation). The shuffle uses the run's ``random_state``
+        Generator, so folds are randomized yet fully reproducible. Without a
+        Generator it falls back to deterministic strided folds.
+        """
+        k = min(self.n_folds, n)
+        order = random_state.permutation(n) if random_state is not None else np.arange(n)
+        pos = np.arange(n)
+        return [(list(order[pos % k != f]), list(order[pos % k == f])) for f in range(k)]
+
+    def validate(self, trn, tst=None, find_best=True, random_state=None, **kwargs):
 
         # get the values to be predicted
         X, y = trn.get("X"), self._get_y(trn)
 
         if tst is None:
-            # Deterministic (strided) folds: the default randomize=True shuffles via
-            # the global `random` module, a source of run-to-run irreproducibility.
-            # Strided assignment interleaves DOE and later infills evenly anyway.
-            X, y, partitions = X, y, CrossvalidationPartitioning(self.n_folds, randomize=False).do(len(trn))
+            partitions = self._cv_folds(len(trn), random_state)
         else:
             _X, _y = tst.get("X"), self._get_y(tst)
             X, y, partitions = merge_and_partition((X, y), (_X, _y))

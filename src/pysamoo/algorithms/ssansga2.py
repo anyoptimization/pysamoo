@@ -36,7 +36,7 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
 
     def _initialize_advance(self, infills=None, **kwargs):
         super()._initialize_advance(infills, **kwargs)
-        self.surrogate.validate(infills)
+        self.surrogate.validate(infills, random_state=self.random_state)
 
     def _infill(self):
 
