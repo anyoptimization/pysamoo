@@ -1,8 +1,11 @@
+"""SSANSGA2 — steady-state surrogate-assisted NSGA-II."""
+
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.duplicate import DefaultDuplicateElimination
 from pymoo.core.population import Population
 from pymoo.optimize import minimize
 from pymoo.util.display.multi import MultiObjectiveOutput
+
 # from pymoo.util.output import MultiObjectiveOutput
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.normalization import normalize
@@ -13,15 +16,16 @@ from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
 class SSANSGA2(SurrogateAssistedAlgorithm):
-
-    def __init__(self,
-                 n_infills=10,
-                 surr_pop_size=100,
-                 surr_n_gen=30,
-                 surr_eps_elim=1e-6,
-                 surr_sampling="current",
-                 output=MultiObjectiveOutput(),
-                 **kwargs):
+    def __init__(
+        self,
+        n_infills=10,
+        surr_pop_size=100,
+        surr_n_gen=30,
+        surr_eps_elim=1e-6,
+        surr_sampling="current",
+        output=MultiObjectiveOutput(),
+        **kwargs,
+    ):
 
         super().__init__(output=output, **kwargs)
         self.n_infills = n_infills
@@ -47,15 +51,9 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
         else:
             raise Exception("Unknown surrogate sampling strategy.")
 
-        algorithm = NSGA2(pop_size=self.surr_pop_size,
-                          sampling=sampling
-                          )
+        algorithm = NSGA2(pop_size=self.surr_pop_size, sampling=sampling)
 
-        res = minimize(problem,
-                       algorithm,
-                       ('n_gen', self.surr_n_gen),
-                       seed=1,
-                       verbose=False)
+        res = minimize(problem, algorithm, ("n_gen", self.surr_n_gen), seed=1, verbose=False)
 
         cand = DefaultDuplicateElimination(epsilon=self.surr_eps_elim).do(res.pop, self._archive)
 
@@ -63,7 +61,6 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
             infills = Population.new(X=cand.get("X"))
 
         else:
-
             ideal = res.opt.get("F").min(axis=0)
             nadir = res.opt.get("F").max(axis=0) + 1e-16
             vals = normalize(cand.get("F"), ideal, nadir)

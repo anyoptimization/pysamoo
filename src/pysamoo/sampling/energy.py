@@ -1,9 +1,11 @@
-import numpy as np
+"""Energy-based constrained sampling."""
 
+import numpy as np
 from pymoo.core.sampling import Sampling
-from pymoo.util.normalization import normalize, denormalize
-from pymoo.util.ref_dirs.energy import squared_dist, calc_potential_energy_with_grad
+from pymoo.util.normalization import denormalize, normalize
+from pymoo.util.ref_dirs.energy import calc_potential_energy_with_grad, squared_dist
 from pymoo.util.ref_dirs.optimizer import Adam
+
 from pysamoo.sampling.niching import NichingConstrainedSampling
 from pysamoo.sampling.rejection import RejectionConstrainedSampling
 
@@ -11,15 +13,12 @@ from pysamoo.sampling.rejection import RejectionConstrainedSampling
 def calc_potential_energy(A, d):
     i, j = np.triu_indices(len(A), 1)
     D = np.sqrt(squared_dist(A, A)[i, j])
-    energy = np.log((1 / D ** d).mean())
+    energy = np.log((1 / D**d).mean())
     return energy
 
 
 class EnergyConstrainedSampling(Sampling):
-
-    def __init__(self,
-                 func_eval_constr,
-                 n_max_iter=10000):
+    def __init__(self, func_eval_constr, n_max_iter=10000):
         super().__init__()
         self.func_eval_constr = func_eval_constr
         self.n_max_iter = n_max_iter
@@ -27,7 +26,7 @@ class EnergyConstrainedSampling(Sampling):
     def _do(self, problem, n_samples, **kwargs):
         xl, xu = problem.bounds()
         constr = self.func_eval_constr
-        d = problem.n_var ** 2
+        d = problem.n_var**2
 
         X = RejectionConstrainedSampling(constr).do(problem, n_samples).get("X")
         if len(X) < n_samples:
@@ -48,7 +47,6 @@ class EnergyConstrainedSampling(Sampling):
         done = False
 
         for i in range(self.n_max_iter):
-
             if done:
                 break
 
@@ -63,7 +61,7 @@ class EnergyConstrainedSampling(Sampling):
 
             hist = hist[-100:]
 
-            avg_impr = (- np.diff(hist[-100:])).mean()
+            avg_impr = (-np.diff(hist[-100:])).mean()
 
             if len(hist) > 100:
                 if avg_impr < 1e-3:

@@ -1,3 +1,5 @@
+"""Default surrogate-model factories for objectives and constraints."""
+
 from ezmodel.core.factory import models_from_clazzes
 from ezmodel.models.kriging import Kriging
 from ezmodel.models.rbf import RBF
@@ -23,7 +25,8 @@ def DEFAULT_OBJ_MODELS(**defaults):
         # SVR,
         # InverseDistanceWeighting,
         # NearestNeighbors,
-        **defaults)
+        **defaults,
+    )
 
     models = {name: entry["model"] for name, entry in models.items()}
 
@@ -40,13 +43,13 @@ def DEFAULT_OBJ_MODELS(**defaults):
     #             model = RBF(**params)
     #             models[f"rbf-{kernel}-{tail}-{normalized}"] = model
 
-    models['kriging-const'] = Kriging(regr="constant")
-    models['kriging-lin'] = Kriging(regr="linear")
-    models['kriging-quadr'] = Kriging(regr="quadratic")
+    models["kriging-const"] = Kriging(regr="constant")
+    models["kriging-lin"] = Kriging(regr="linear")
+    models["kriging-quadr"] = Kriging(regr="quadratic")
 
-    models['kriging-const-ARD'] = Kriging(regr="constant", ARD=True)
-    models['kriging-lin-ARD'] = Kriging(regr="linear", ARD=True)
-    models['kriging-quadr-ARD'] = Kriging(regr="quadratic", ARD=True)
+    models["kriging-const-ARD"] = Kriging(regr="constant", ARD=True)
+    models["kriging-lin-ARD"] = Kriging(regr="linear", ARD=True)
+    models["kriging-quadr-ARD"] = Kriging(regr="quadratic", ARD=True)
     # models['kriging-sine'] = Kriging(regr="sine")
 
     return models
@@ -87,8 +90,8 @@ def DEFAULT_EQ_CONSTR_MODELS(**defaults):
                     model = RBF(**params)
                     models[f"rbf-{kernel}-{tail}-{normalized}-{optimize}"] = model
 
-    models['kriging-const'] = Kriging(regr="constant")
-    models['kriging-lin'] = Kriging(regr="linear")
-    models['kriging-quadr'] = Kriging(regr="quadratic")
+    models["kriging-const"] = Kriging(regr="constant")
+    models["kriging-lin"] = Kriging(regr="linear")
+    models["kriging-quadr"] = Kriging(regr="quadratic")
 
     return models

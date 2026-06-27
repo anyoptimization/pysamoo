@@ -1,25 +1,26 @@
+"""Total constraint-violation aggregation utilities."""
+
 from collections.abc import Callable
 
 import autograd.numpy as anp
 import numpy as np
-
 from pymoo.core.individual import Individual
 from pymoo.core.population import Population
 from pymoo.util.misc import at_least_2d_array
 
 
 class TotalConstraintViolation:
-
-    def __init__(self,
-                 ieq_eps: float = 0.0,
-                 ieq_pow: float = None,
-                 ieq_scale: np.ndarray = None,
-                 eq_eps: float = 1e-4,
-                 eq_pow: float = None,
-                 eq_scale: np.ndarray = None,
-                 aggr_func: Callable = np.mean,
-                 feas_eps: float = 0.0):
-
+    def __init__(
+        self,
+        ieq_eps: float = 0.0,
+        ieq_pow: float = None,
+        ieq_scale: np.ndarray = None,
+        eq_eps: float = 1e-4,
+        eq_pow: float = None,
+        eq_scale: np.ndarray = None,
+        aggr_func: Callable = np.mean,
+        feas_eps: float = 0.0,
+    ):
         """
 
         Parameters
@@ -62,21 +63,18 @@ class TotalConstraintViolation:
 
         self.feas_eps = feas_eps
 
-    def calc(self,
-             G: np.ndarray = None,
-             H: np.ndarray = None,
-             return_feas=False):
+    def calc(self, G: np.ndarray = None, H: np.ndarray = None, return_feas=False):
 
         # convert all constraints to one big array
         C = []
 
         if G is not None:
-            G = at_least_2d_array(G, extend_as='r')
+            G = at_least_2d_array(G, extend_as="r")
             cv_ieq = g_to_cv(G, self.ieq_eps, beta=self.ieq_beta, scale=self.ieq_scale)
             C.append(cv_ieq)
 
         if H is not None:
-            H = at_least_2d_array(H, extend_as='r')
+            H = at_least_2d_array(H, extend_as="r")
             cv_eq = g_to_cv(np.abs(H), self.eq_eps, beta=self.eq_beta, scale=self.eq_scale)
             # cv_eq = g_to_cv(H ** 2, self.eq_eps ** 2, beta=self.eq_pow, scale=self.eq_scale)
             C.append(cv_eq)
@@ -123,7 +121,6 @@ def g_to_cv(g, eps, beta=None, scale=None):
 
     # apply scaling if necessary
     if scale is not None:
-
         # allow a scalar value as input
         if not isinstance(scale, np.ndarray):
             scale = np.full(g.shape[1], scale)
@@ -134,7 +131,7 @@ def g_to_cv(g, eps, beta=None, scale=None):
 
     # if a pow factor has been provided
     if beta is not None:
-        g = g ** beta
+        g = g**beta
 
     return g
 

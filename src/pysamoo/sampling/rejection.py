@@ -1,5 +1,6 @@
-import numpy as np
+"""Rejection-based constrained sampling with maximum-distance selection."""
 
+import numpy as np
 from pymoo.core.sampling import Sampling
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.util.misc import cdist
@@ -40,7 +41,6 @@ def select_points_with_maximum_distance(X, n_select, selected=[]):
 
 
 class CustomLHS(LHS):
-
     def __init__(self, iterations=100, others=None, **kwargs) -> None:
         super().__init__(iterations=iterations, **kwargs)
         self.others = others
@@ -65,13 +65,7 @@ class CustomLHS(LHS):
 
 
 class RejectionConstrainedSampling(Sampling):
-
-    def __init__(self,
-                 func_eval_constr,
-                 batch_size=None,
-                 n_multiplier=2,
-                 max_iter=100
-                 ):
+    def __init__(self, func_eval_constr, batch_size=None, n_multiplier=2, max_iter=100):
         super().__init__()
         self.max_iter = max_iter
         self.n_multiplier = n_multiplier
@@ -87,21 +81,19 @@ class RejectionConstrainedSampling(Sampling):
         ret = np.zeros((0, problem.n_var))
 
         for k in range(self.max_iter):
-
             if len(ret) >= self.n_multiplier * n_samples:
                 break
 
             else:
-
                 sampling = CustomLHS(others=ret)
 
                 X = sampling.do(problem, n_points).get("X")
 
                 CV = self.func_eval_constr(X)
-                is_feasible = (CV <= 0)
+                is_feasible = CV <= 0
                 X = X[is_feasible]
 
-                ret = np.row_stack([ret, X])
+                ret = np.vstack([ret, X])
 
         if len(ret) > n_samples:
             I = select_points_with_maximum_distance(ret, n_samples)

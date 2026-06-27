@@ -1,10 +1,11 @@
+"""Target specification mapping problem outputs to surrogate models."""
+
 from copy import deepcopy
 
 import numpy as np
 from ezmodel.core.benchmark import Benchmark
 from ezmodel.core.partitioning import merge_and_partition
 from ezmodel.util.partitioning.crossvalidation import CrossvalidationPartitioning
-from pymoo.core.population import Population
 from pymoo.util.misc import from_dict
 from pymoo.util.sliding_window import SlidingWindow
 
@@ -12,14 +13,7 @@ from pysamoo.core.indicator import INDICATORS
 
 
 class Target:
-
-    def __init__(self,
-                 label,
-                 models,
-                 n_folds=5,
-                 n_max_performances=5,
-                 n_max_benchmarks=0,
-                 indicators=INDICATORS):
+    def __init__(self, label, models, n_folds=5, n_max_performances=5, n_max_benchmarks=0, indicators=INDICATORS):
         """
 
         Parameters
@@ -87,7 +81,6 @@ class Target:
         self.benchmarks.append(benchmark)
 
         for model in self.models.keys():
-
             results = benchmark["results"][model]
 
             # for each of the run, execute all the performance indicators
@@ -110,7 +103,6 @@ class Target:
         assert len(models) > 0, "Fitting each of the models has failed at least once in the benchmark."
 
         for entry in indicator:
-
             # get the performances from the the n_max_performance iterations
             v = np.array([self.performance(entry, model=model) for model in models])
 

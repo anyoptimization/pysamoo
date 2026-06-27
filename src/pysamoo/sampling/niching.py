@@ -1,3 +1,5 @@
+"""Niching-based constrained sampling."""
+
 from pymoo.algorithms.soo.nonconvex.ga_niching import NicheGA
 from pymoo.core.meta import Meta
 from pymoo.core.sampling import Sampling
@@ -7,7 +9,6 @@ from pymoo.util.reference_direction import select_points_with_maximum_distance
 
 
 class NichingConstrainedSampling(Sampling):
-
     def __init__(self, func_eval_constr, sampling=LHS(), initial_eps=0.25):
         super().__init__()
         self.func_eval_constr = func_eval_constr
@@ -18,7 +19,6 @@ class NichingConstrainedSampling(Sampling):
         constr = self.func_eval_constr
 
         class ConstrainedProblem(Meta):
-
             def __init__(self, problem):
                 super().__init__(problem)
                 self.n_obj = 1
@@ -34,7 +34,6 @@ class NichingConstrainedSampling(Sampling):
         eps = self.initial_eps
 
         while True:
-
             algorithm = NicheGA(pop_size=n_samples, samping=self.sampling, norm_niche_size=eps, norm_by_dim=True)
 
             res = minimize(problem, algorithm, ("n_gen", 200), return_least_infeasible=True)

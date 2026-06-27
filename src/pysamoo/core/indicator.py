@@ -1,3 +1,5 @@
+"""Surrogate-accuracy indicators (MSE, RMSE, MAE, R2, Kendall tau, ...)."""
+
 import numpy as np
 from scipy.stats import rankdata
 
@@ -17,15 +19,16 @@ def calc_mae(y_true, y_hat, **kwargs):
 def kendall_tau(y_true, y_hat, trn_y=None, **kwargs):
     assert trn_y is not None, "For kendall tau the ranking needs to be calculated which requires the training data!"
 
-    a = rankdata(np.concatenate([trn_y, y_true]), method='min')
-    b = rankdata(np.concatenate([trn_y, y_hat]), method='min')
+    a = rankdata(np.concatenate([trn_y, y_true]), method="min")
+    b = rankdata(np.concatenate([trn_y, y_hat]), method="min")
 
     n = len(a)
 
     i, j = np.meshgrid(np.arange(n), np.arange(n))
 
-    ndisordered = np.logical_or(np.logical_and(a[i] < a[j], b[i] > b[j]),
-                                np.logical_and(a[i] > a[j], b[i] < b[j])).sum()
+    ndisordered = np.logical_or(
+        np.logical_and(a[i] < a[j], b[i] > b[j]), np.logical_and(a[i] > a[j], b[i] < b[j])
+    ).sum()
 
     # ndisordered = ndisordered / (n * (n - 1))
 

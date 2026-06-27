@@ -1,16 +1,11 @@
+"""Surrogate-model wrapper and surrogate-backed problem definition."""
+
 import numpy as np
 from pymoo.core.meta import Meta
 
-from pymoo.core.problem import Problem
-
 
 class Surrogate:
-
-    def __init__(self,
-                 problem,
-                 targets=None,
-                 **kwargs):
-
+    def __init__(self, problem, targets=None, **kwargs):
         """
 
         This surrogate object allows to conveniently build and update surrogates for a Population object.
@@ -52,7 +47,6 @@ class Surrogate:
 
 
 class ProblemFromTargets(Meta):
-
     def __init__(self, problem, targets, **kwargs):
         super().__init__(problem, **kwargs)
         self.targets = targets

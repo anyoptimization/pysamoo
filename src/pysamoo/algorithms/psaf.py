@@ -1,3 +1,5 @@
+"""PSAF — probabilistic surrogate-assisted framework for single-objective problems."""
+
 from copy import deepcopy
 
 import numpy as np
@@ -22,7 +24,6 @@ from pysamoo.core.target import Target
 
 
 class PSAFOutput(SingleObjectiveOutput):
-
     def __init__(self, output, **kwargs):
         super().__init__(**kwargs)
         self.output = output
@@ -31,11 +32,11 @@ class PSAFOutput(SingleObjectiveOutput):
         self.r2 = Column(name="r2", func=lambda a: a.r2)
         self.only_one_mode = False
         self.mae = Column(name="mae")
-        self.model = Column(name="model",  width=60)
+        self.model = Column(name="model", width=60)
 
     def initialize(self, algorithm):
         self.output.initialize(algorithm)
-        self.columns = [e for e in self.output.columns if e.name != 'f_avg'] + [self.r2, self.bias]
+        self.columns = [e for e in self.output.columns if e.name != "f_avg"] + [self.r2, self.bias]
 
         problem = algorithm.problem
         if problem.n_obj == 1 and problem.n_constr == 0:
@@ -55,7 +56,6 @@ class PSAFOutput(SingleObjectiveOutput):
 
 
 class PSAF(SurrogateAssistedAlgorithm):
-
     def __init__(self, algorithm, alpha=5, beta=30, rho=None, rho_max=0.7, eps=0.005, **kwargs):
         SurrogateAssistedAlgorithm.__init__(self, **kwargs)
         self.algorithm = deepcopy(algorithm)
@@ -68,7 +68,9 @@ class PSAF(SurrogateAssistedAlgorithm):
         self.r2 = None
 
     def _setup(self, problem, **kwargs):
-        assert problem.n_obj == 1 and problem.n_constr == 0, "PSAF only works for unconstrained single-objective problems!"
+        assert problem.n_obj == 1 and problem.n_constr == 0, (
+            "PSAF only works for unconstrained single-objective problems!"
+        )
 
         super()._setup(problem, **kwargs)
         self.algorithm.setup(problem, **kwargs)
@@ -126,30 +128,25 @@ class PSAF(SurrogateAssistedAlgorithm):
 
         # if a tournament selection should be done alpha is at least two
         if self.alpha > 1:
-
             # do the tournament for each alpha
             for k in range(self.alpha - 1):
-
                 # create a second pool and actually do the tournament
                 others = self.algorithm.infill()
                 Evaluator().eval(problem, others)
 
                 # for each offspring see if we do the surrogate tournament
                 for k in range(len(off)):
-
                     # if the competitor is not worse it will take the lead
                     if get_relation(others[k], off[k]) >= 0:
                         off[k] = others[k]
 
         # if algorithm shall be continued on the surrogate and there is a bias at all
         if self.beta > 0 and bias > 0.0:
-
             # already calculate what individuals will be replaced later
             replace = np.random.random(len(off)) <= bias
 
             # if at least one is replaced actually simulate the algorithm on the surrogate
             if replace.sum() > 0:
-
                 # create a copy of the algorithm object
                 algorithm = deepcopy(self.algorithm)
                 algorithm.termination = NoTermination()
@@ -160,7 +157,6 @@ class PSAF(SurrogateAssistedAlgorithm):
 
                 # run the algorithm for beta generations and always assign replacement candidates
                 for k in range(self.beta):
-
                     # just to make sure no algorithm specific termination criterion has be executed
                     if not algorithm.has_next():
                         break
@@ -171,14 +167,12 @@ class PSAF(SurrogateAssistedAlgorithm):
 
                     # if there is some candidates to consider
                     if len(infills) > 0:
-
                         # find the closest individuals for each candidate to offsprings
                         dists = norm_eucl_dist(problem, infills.get("X"), off.get("X"))
                         I = dists.argmin(axis=1)
 
                         # for each infill solution check if it replaces the candidate
                         for j in range(len(infills)):
-
                             # get the index to the closest of offsprings
                             i = I[j]
 
@@ -191,13 +185,12 @@ class PSAF(SurrogateAssistedAlgorithm):
 
                 # now do the probabilistic replacement
                 for i in range(len(off)):
-
                     # if it should be replaced (that has been pre-calculated)
                     if replace[i]:
                         off[i] = cands[i]
 
         self.bias = bias
-        self.r2  = r2
+        self.r2 = r2
 
         # no only use the X values
         infills = Population.new(X=off.get("X"))

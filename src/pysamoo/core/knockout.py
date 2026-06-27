@@ -1,7 +1,8 @@
+"""Knockout tournament selection under noisy/uncertain comparisons."""
+
 from collections import Counter
 
 import numpy as np
-
 from pymoo.core.population import Population
 from pymoo.core.replacement import ReplacementSurvival
 from pymoo.util.dominator import get_relation
@@ -53,7 +54,6 @@ def knockout(sols, n_winners=1, error=None):
 
     # until we have found a clear winner of the tournament
     while len(pool) > n_winners:
-
         # the list of winners in this round
         winners = []
 
@@ -74,7 +74,6 @@ def knockout(sols, n_winners=1, error=None):
             S = set(winners)
 
             for k in np.random.permutation(len(sols)):
-
                 # if not added yet then add it
                 if k not in S:
                     winners.append(k)
@@ -89,7 +88,6 @@ def knockout(sols, n_winners=1, error=None):
 
 
 class NoisyReplacement(ReplacementSurvival):
-
     def __init__(self, error, **kwargs):
         super().__init__(**kwargs)
         self.error = error

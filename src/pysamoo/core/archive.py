@@ -1,8 +1,9 @@
+"""Archive for storing and querying evaluated solutions."""
+
 from pymoo.core.population import Population
 
 
 class Archive:
-
     def __init__(self, survival, max_size=100, trunc_size=None, problem=None) -> None:
         super().__init__()
         self.sols = Population()
@@ -19,4 +20,3 @@ class Archive:
             sols = self.survival.do(self.problem, sols, n_survive=self.trunc_size)
 
         self.sols = sols
-

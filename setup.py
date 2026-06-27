@@ -1,6 +1,13 @@
+import os
+
 import setuptools
 
-from pysamoo.version import __version__
+# Read the version without importing the package (src/ layout: package not on
+# sys.path at build time).
+__version__ = {}
+with open(os.path.join("src", "pysamoo", "version.py")) as f:
+    exec(f.read(), __version__)
+__version__ = __version__["__version__"]
 
 # ---------------------------------------------------------------------------------------------------------
 # GENERAL
@@ -21,7 +28,10 @@ data = dict(
     description="Surrogate-Assisted Multi-objective Optimization",
     license='GNU AFFERO GENERAL PUBLIC LICENSE (AGPL)',
     keywords="surrogate, metamodel, bayesian optimization",
-    install_requires=["pymoo==0.6.1.1", "ezmodel"],
+    install_requires=["pymoo>=0.6.1.5,<0.6.2", "ezmodel"],
+    extras_require={
+        "dev": ["ruff", "mypy", "pytest", "pytest-xdist", "pytest-cov"],
+    },
     platforms='any',
     classifiers=[
         'Intended Audience :: Developers',
@@ -53,11 +63,8 @@ def readme():
         return f.read()
 
 
-def packages():
-    return ["pysamoo"] + ["pysamoo." + e for e in setuptools.find_packages(where='pysamoo')]
-
-
 data['long_description'] = readme()
-data['packages'] = packages()
+data['package_dir'] = {'': 'src'}
+data['packages'] = setuptools.find_packages(where='src')
 
 setuptools.setup(**data)

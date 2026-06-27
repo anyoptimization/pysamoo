@@ -1,10 +1,12 @@
+"""Base class and helpers for surrogate-assisted algorithms."""
+
 from pymoo.core.algorithm import Algorithm
 from pymoo.core.initialization import Initialization
 from pymoo.core.population import Population
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.util.normalization import ZeroToOneNormalization
 
-from pysamoo.core.defaults import DEFAULT_OBJ_MODELS, DEFAULT_IEQ_CONSTR_MODELS, DEFAULT_EQ_CONSTR_MODELS
+from pysamoo.core.defaults import DEFAULT_EQ_CONSTR_MODELS, DEFAULT_IEQ_CONSTR_MODELS, DEFAULT_OBJ_MODELS
 from pysamoo.core.surrogate import Surrogate
 from pysamoo.core.target import Target
 
@@ -14,14 +16,9 @@ def default_n_doe(n, max=float("inf")):
 
 
 class SurrogateAssistedAlgorithm(Algorithm):
-
-    def __init__(self,
-                 n_initial_doe=None,
-                 n_initial_max_doe=100,
-                 sampling=LHS(),
-                 nth_validate=5,
-                 surrogate=None,
-                 **kwargs):
+    def __init__(
+        self, n_initial_doe=None, n_initial_max_doe=100, sampling=LHS(), nth_validate=5, surrogate=None, **kwargs
+    ):
         """
         Parameters
         ----------
@@ -60,7 +57,6 @@ class SurrogateAssistedAlgorithm(Algorithm):
 
         # initialize the default surrogate for the algorithm
         if self.surrogate is None:
-
             # the design space boundaries for the problem - used for normalization in the surrogate
             xl, xu = problem.bounds()
             defaults = dict(norm_X=MyNormalization(xl, xu))
@@ -103,7 +99,6 @@ class SurrogateAssistedAlgorithm(Algorithm):
 
 
 class MyNormalization(ZeroToOneNormalization):
-
     def forward(self, X):
         return super().forward(X) * 200 - 100
 
