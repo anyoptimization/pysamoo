@@ -137,3 +137,45 @@ The independent cost angles compose: **redundancy-free pool** (×10, measured) �
 (bounds O(n³)) × **lazy re-selection** (×k in frequency). Determinism comes for free
 from LOO, or from seeding folds + a deterministic tie-break. Each is a hypothesis in
 the loop, ranked by impact-per-effort there.
+
+## 7. Proposed method: the adaptive racing pool (H8)
+
+The most promising *intelligent* selection — it reduces the candidate pool over time
+from evidence, rather than by a fixed guess. Prototype + numbers:
+[adaptive_pool_prototype.py](adaptive_pool_prototype.py).
+
+**Algorithm.** Keep an `active` set (initially the full pool) and a rolling window of
+each model's recent CV error.
+
+1. **Score** only the *active* models each iteration (cost shrinks as the set shrinks).
+2. **Prune** after a short warmup: rank active models by rolling-mean CV error, keep
+   the top `keep_ratio` (successive-halving style), **down to a floor** — and always
+   retain **≥1 model per kernel family** (the diversity floor that protects
+   generalization; this is why naive pool-cutting failed in §4).
+3. **Re-admit** a round-robin batch of pruned models every `R` iterations, so a model
+   that becomes good only on a larger archive can return (handles non-stationarity;
+   this is the answer to "won't it lock in and never switch?").
+
+**Why it is well-suited to this problem.** GP fitting is O(n³) and the archive grows,
+so the pool is *full while fits are cheap* (small n) and *shrinks exactly as fits get
+expensive* (large n). The wall-clock saving is therefore larger than the fit-count
+saving.
+
+**Measured (20-iteration simulated run, growing archive):**
+
+| | full pool | fixed family(8) | **racing** |
+|---|---:|---:|---:|
+| Ackley — total model-fits | 2700 | 800 | **1510 (56%)** |
+| Ackley — mean held-out RMSE | 0.666 | 0.688 | **0.666** (= full) |
+| Rastrigin — total model-fits | 2700 | 800 | **1515 (56%)** |
+| Rastrigin — mean held-out RMSE | 16.225 | 16.259 | **16.225** (= full) |
+
+Racing matched the full pool's generalization **exactly** while doing ~half the fits —
+and beat the fixed family pool, because it *adapts which models to keep* instead of
+guessing up front. Active set shrank 27 → 18 → 12 → 10 with periodic re-admission.
+
+**Implementation path (not yet shipped):** add a `RacingTarget` (a `Target` subclass
+that maintains the active set + rolling history and overrides `validate` to score only
+the active set) selectable via a config flag; combine with closed-form LOO (H2) and
+lazy re-selection (H3) for compounding gains. Reproducible by construction (uses the
+threaded `random_state`).

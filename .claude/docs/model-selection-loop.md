@@ -80,6 +80,7 @@ Each loop iteration:
 | H5 | **Reproducible runs under a fixed seed** | thread `random_state` everywhere + deterministic CV folds + deterministic tie-break | run each algorithm twice, assert identical | identical results across runs | **SHIPPED** — see below; `tests/test_reproducibility.py` guards GPSAF/PSAF/SSANSGA2 |
 | H6 | **PRESS-weighted ensemble** ≥ single-best generalization, free uncertainty | `target.py` find_best/predict | ensemble vs best RMSE on suite | RMSE ≤ best, no extra fits | pending |
 | H7 | **Rank by log pseudo-likelihood** (not integer kendall_tau) removes frequent ties | `target.py` indicators | tie frequency; selection stability | fewer ties, stable choice | pending |
+| H8 | **Adaptive racing pool**: shrink the active set over time (prune dominated models by rolling CV error) with a per-family diversity floor + periodic re-admission | new `RacingTarget` / `target.py` | cost (fits/wall) + generalization vs full, over a simulated run | ≥40% fewer fits, RMSE within tol, still adapts | **confirmed (prototype)** — see `adaptive_pool_prototype.py`; matches full RMSE at 56% of fits |
 
 ---
 
@@ -103,6 +104,7 @@ Stop when **either**:
 | 2026-06-27 | 1 | H1 | family(8) | 0.07–0.12 s | ackley 0.69–0.80; rastrigin 15.7–18.5 (≈full) | n/a | **confirmed** (~10× faster, RMSE within tol) — TODO: MOO + constraints |
 | 2026-06-27 | 1 | H5 | full(38), seeded folds | same | unchanged | **yes** (identical across runs) | **confirmed** |
 | 2026-06-27 | 2 | H5 | **SHIPPED**: random_state threaded through GPSAF/PSAF/SSANSGA2 + deterministic CV folds (`randomize=False`) + deterministic tie-break (`models[0]`) | unchanged | unchanged | **yes** — all 3 algos bit-identical across runs | **done** — guarded by `tests/test_reproducibility.py` |
+| 2026-06-27 | 3 | H8 | racing pool (warmup 3, window 4, keep 0.6, floor 8, re-admit 4 every 5) vs full, simulated 20-iter growing archive (ackley, rastrigin) | **56% of full's fits** (and the *late, expensive* O(n³) fits run on the shrunk pool) | **identical to full** (ackley 0.666, rastrigin 16.225) | reproducible (Generator) | **confirmed** — beats fixed family(8) (which was 0.688); next: implement as `RacingTarget` in src behind a flag |
 
 ---
 
