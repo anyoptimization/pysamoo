@@ -84,7 +84,7 @@ Each loop iteration:
 | # | Hypothesis | Where to change | Experiment | Success criterion | Status |
 |---|---|---|---|---|---|
 | H1 | A redundancy-free **family pool (~8)** generalizes like full(38) at ~10× less cost | `defaults.py` pool / bench `POOLS` | family(8) vs full(38) vs small(3) on suite | ≥8× faster, RMSE within +5% | **confirmed** (ackley/rastrigin, see log) — extend to MOO + constraints |
-| H2 | **Closed-form LOO-CV** (GPML eq. 5.12) selects the same model as 5-fold at a fraction of cost | new strategy; later `target.py`/`ezmodel` | LOO-rank vs kfold-rank agreement; cost | same top-1 ≥90% of cases, ≥3× faster, deterministic | pending |
+| H2 | **Closed-form LOO-CV** (GPML eq. 5.12) selects the same model as 5-fold at a fraction of cost | new strategy; later `target.py`/`ezmodel` | LOO-rank vs kfold-rank agreement; cost | same top-1 ≥90% of cases, ≥3× faster, deterministic | **REJECTED** — `loo_vs_kfold.py`: LOO picks a worse-generalizing model than 5-fold (Ackley test-gap 0.025 vs 0.0001) and disagrees 20–40% of seeds. 5-fold is more robust; keep it. Speed must come from H3/H8/H4, not from changing the CV scheme. |
 | H3 | **Lazy re-selection** every k iters (wire up dead `nth_validate`) keeps convergence | `algorithm.py` `revalidate()` gates the `_advance` validate | full-run wall + quality vs k∈{1,5} | big wall drop, quality not worse | **SHIPPED** — ~3.8× faster at equal/better quality; `nth_validate=5` is now honored (was dead code); guarded by `tests/test_selection.py` |
 | H4 | **Cap GP fit to L-nearest subset** bounds O(n³) without hurting generalization | `_doe()` / fit path | RMSE & cost vs cap L∈{80,160,∞}, large n | cost ~constant in n, RMSE within +5% | pending |
 | H5 | **Reproducible runs under a fixed seed** | thread `random_state` everywhere + deterministic CV folds + deterministic tie-break | run each algorithm twice, assert identical | identical results across runs | **SHIPPED** — see below; `tests/test_reproducibility.py` guards GPSAF/PSAF/SSANSGA2 |
@@ -117,6 +117,7 @@ Stop when **either**:
 | 2026-06-27 | 3 | H8 | racing pool (warmup 3, window 4, keep 0.6, floor 8, re-admit 4 every 5) vs full, simulated 20-iter growing archive (ackley, rastrigin) | **56% of full's fits** (and the *late, expensive* O(n³) fits run on the shrunk pool) | **identical to full** (ackley 0.666, rastrigin 16.225) | reproducible (Generator) | **confirmed** — beats fixed family(8) (which was 0.688) |
 | 2026-06-27 | 4 | H8 | **SHIPPED**: `RacingTarget` + pluggable `selection="racing"` (modular registry) | real GPSAF run: pool shrinks 38→24→18→12→9; ~20-25% faster | equal quality | reproducible | **done** — `tests/test_selection.py` |
 | 2026-06-27 | 5 | H3 | **SHIPPED**: `revalidate()` honors `nth_validate` (lazy re-selection). GPSAF Ackley(10), 220 evals, n_max_doe=200 | nth=1: 42s → **nth=5: 11s (~3.8×)**; racing+nth=5: **10.5s (~4×)** | best_F equal/better (3.78 → 2.59) | reproducible | **done** — biggest single wall-time win; stacks with racing |
+| 2026-06-27 | 6 | H2 | LOO-CV vs 5-fold as model selectors (ackley/rastrigin/sphere, 9-model pool, 5 seeds) | n/a (selection-quality study) | **5-fold picks better-generalizing model** (Ackley gap 0.0001 vs LOO 0.0246); disagree 20–40% | n/a | **REJECTED** — confirms field experience that LOO is less robust; keep 5-fold |
 
 ---
 

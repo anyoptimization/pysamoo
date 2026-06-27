@@ -110,8 +110,17 @@ Full survey with URLs in the agent report; the load-bearing techniques:
    computes — `μ_i = y_i − [K⁻¹y]_i / [K⁻¹]_ii`, `σ²_i = 1/[K⁻¹]_ii` — total overhead
    O(n²), **no k-fold refitting**. Rank by **log pseudo-likelihood** (eq. 5.11), not
    squared error. RBF/kernel-ridge analogue: PRESS via the hat matrix,
-   `resid_i/(1−H_ii)`, and GCV (Golub–Heath–Wahba 1979). *Biggest single win; also
-   deterministic.* https://gaussianprocess.org/gpml/chapters/RW5.pdf
+   `resid_i/(1−H_ii)`, and GCV (Golub–Heath–Wahba 1979).
+   https://gaussianprocess.org/gpml/chapters/RW5.pdf
+   > ⚠️ **Tested and REJECTED for *model selection* here** (`loo_vs_kfold.py`, H2). LOO
+   > as a *selector* is less robust than 5-fold: it picks a worse-generalizing model
+   > (Ackley test-gap 0.025 vs 0.0001) and disagrees with 5-fold on 20–40% of seeds.
+   > LOO's low estimator-bias does not translate to good selection — training on n−1
+   > points makes all candidates look alike, so the pick is swayed by single points.
+   > Keep 5-fold. (LOO would still be fine as a *cheap fit diagnostic*, just not to
+   > choose among models.) Also: ``pydacefit`` Kriging `boxmin` intermittently raises
+   > under numpy 2 (`nonzero on 0d arrays`) — a real bug in the dependency stack that
+   > silently drops Kriging candidates from selection; worth fixing in ezmodel/pydacefit.
 2. **Lazy / periodic re-selection** — decouple selection frequency from infill
    frequency; re-select every k iters or on a trust-region degradation trigger.
    Evidence the quality cost is small: Ahrari & Verstraete, *SWEVO* 2023;
