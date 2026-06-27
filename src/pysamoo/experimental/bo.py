@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from ezmodel.core.factory import models_from_clazzes
-from ezmodel.core.selection import ModelSelection
 from ezmodel.models.kriging import Kriging
-from ezmodel.util.partitioning.crossvalidation import CrossvalidationPartitioning
 from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
 from pymoo.algorithms.soo.nonconvex.ga_niching import NicheGA
 from pymoo.core.callback import Callback
@@ -18,6 +16,8 @@ from pymoo.util.display.single import SingleObjectiveOutput
 from pymoo.util.normalization import ZeroToOneNormalization
 
 from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
+from pysamoo.core.selection import resolve as resolve_selection
+from pysamoo.core.surrogate import Surrogate
 from pysamoo.experimental.acquisition import EI, AcquisitionProblem
 
 
@@ -35,9 +35,9 @@ class EGOOutput(SingleObjectiveOutput):
         self.f_new = Column(name="f_new")
         self.acq = Column(name="acq")
 
-        self.model = [Column(name="acq", func=lambda a: a.surrogate.regr),
-                      Column(name="corr", func=lambda a: a.surrogate.corr),
-                      Column(name="ARD", func=lambda a: a.surrogate.ARD)
+        self.model = [Column(name="regr", func=lambda a: a._chosen_model.regr),
+                      Column(name="corr", func=lambda a: a._chosen_model.corr),
+                      Column(name="ARD", func=lambda a: a._chosen_model.ARD)
                       ]
 
     def initialize(self, algorithm):
@@ -69,17 +69,27 @@ class BayesianOptimization(SurrogateAssistedAlgorithm):
     def __init__(self,
                  acq_func=EI(),
                  model_selection=False,
+                 racing=True,
+                 nth_validate=5,
                  adaptive_fmin=True,
                  output=EGOOutput(),
                  **kwargs):
 
-        super().__init__(output=output, **kwargs)
+        super().__init__(output=output, nth_validate=nth_validate, **kwargs)
         self.default_termination = DefaultSingleObjectiveTermination()
 
         self.model_selection = model_selection
+        # which selection strategy to use for the Kriging grid when model_selection
+        # is on: reuse the shared, pluggable strategies ("racing" -> RacingTarget,
+        # "full" -> Target). No bespoke racing logic here.
+        self.selection = "racing" if racing else "full"
         self.acq_func = acq_func
         self.adaptive_fmin = adaptive_fmin
         self.acq = None
+
+        # the surrogate target for the objective (built lazily in _infill once the
+        # problem bounds are known); holds the shared CV-selection + racing state
+        self._target = None
 
     def _infill(self):
 
@@ -95,9 +105,18 @@ class BayesianOptimization(SurrogateAssistedAlgorithm):
 
         # rather the best model should be selected or simply the default kriging implementation taken
         if self.model_selection:
-            models = models_from_clazzes(Kriging, **defaults)
-            partitions = CrossvalidationPartitioning(k_folds=5, seed=1).do(X)
-            model = ModelSelection(models).do(X, F[:, 0], partitions)
+            # Reuse the shared selection machinery over a Kriging-only grid:
+            # Target/RacingTarget does the cross-validated selection (and racing),
+            # and self.revalidate() applies the lazy nth_validate gate. Between
+            # re-selections the chosen model is simply refit on the new data.
+            if self._target is None:
+                grid = models_from_clazzes(Kriging, **defaults)
+                grid = {name: entry["model"] for name, entry in grid.items()}
+                self._target = resolve_selection(self.selection)(("F", 0), grid)
+                self.surrogate = Surrogate(problem, [self._target])
+            self.revalidate(self._archive)
+            self._target.fit(self._archive)
+            model = self._target.obj
         else:
             model = Kriging(regr="linear", corr="gauss", ARD=True, **defaults)
             model.fit(X, F[:, 0])
@@ -129,7 +148,7 @@ class BayesianOptimization(SurrogateAssistedAlgorithm):
         X, F = res.opt.get("X", "F")
 
         self.acq = acq
-        self.surrogate = model
+        self._chosen_model = model  # the fitted surrogate used this iteration (for output)
         return Population.new(X=X, acq=F)[[0]]
 
     def _set_optimum(self):

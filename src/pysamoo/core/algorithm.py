@@ -116,7 +116,9 @@ class SurrogateAssistedAlgorithm(Algorithm):
         behaviour); ``None``/``0`` is treated the same.
         """
         self._revalidate_count = getattr(self, "_revalidate_count", 0) + 1
-        if not self.nth_validate or self._revalidate_count % self.nth_validate == 0:
+        # validate on the first call and then every nth_validate-th call (so a
+        # caller whose first selection happens here — e.g. BO — is covered).
+        if not self.nth_validate or (self._revalidate_count - 1) % self.nth_validate == 0:
             self.surrogate.validate(*args, **kwargs)
 
     def _initialize_infill(self):
