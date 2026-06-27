@@ -1,6 +1,5 @@
 """GPSAF — the generalized probabilistic surrogate-assisted framework algorithm."""
 
-import random
 from copy import deepcopy
 
 import matplotlib.pyplot as plt
@@ -262,7 +261,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
                     rho = (len(pool) / max([len(e) for e in trace_assigned])) ** 0.5
 
                 # if the solution should be replaced
-                if np.random.random() <= rho:
+                if self.random_state.random() <= rho:
                     # if it should be replaced find the ONE solution from the pool
                     biased = self._infill_prob_tourn(pool, method="tournament", error=error, n_winners=1)[0]
 
@@ -316,7 +315,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
             # create a second pool and actually do the tournament
             others = self.algorithm.infill()
             if len(others) > len(influenced):
-                I = np.random.permutation(len(others))[: len(influenced)]
+                I = self.random_state.permutation(len(others))[: len(influenced)]
                 others = others[I]
 
             Evaluator().eval(problem, others)
@@ -397,7 +396,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
                 return FitnessSurvival().do(self.problem, Population.create(*sols), n_survive=n_winners)[0]
 
             elif method == "random":
-                return np.random.choice(sols, size=n_winners)
+                return self.random_state.choice(sols, size=n_winners)
 
             elif method == "tournament":
                 # create a copy of all solutions to be considered
@@ -406,11 +405,11 @@ class GPSAF(SurrogateAssistedAlgorithm):
                 # until we have found a clear winner of the tournament
                 while True:
                     # always shuffle the pool to have random tournaments
-                    random.shuffle(pool)
+                    self.random_state.shuffle(pool)
 
                     # make sure the pool is an even number
                     if len(pool) % 2 != 0:
-                        pool.append(np.random.choice(pool))
+                        pool.append(self.random_state.choice(pool))
 
                     # create the pairs that compete with each other
                     pairs = np.reshape(np.array(pool), (-1, 2))
@@ -419,7 +418,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
                     winners = []
 
                     # create a solution pool with noise
-                    sols_with_noise = noisy(sols, error)
+                    sols_with_noise = noisy(sols, error, random_state=self.random_state)
 
                     for i, j in pairs:
                         # the two solutions to be compared
@@ -435,10 +434,16 @@ class GPSAF(SurrogateAssistedAlgorithm):
                         else:
                             if a.get("k") is not None and b.get("k") is not None:
                                 k = compare(
-                                    i, a.get("k"), j, b.get("k"), method="larger_is_better", return_random_if_equal=True
+                                    i,
+                                    a.get("k"),
+                                    j,
+                                    b.get("k"),
+                                    method="larger_is_better",
+                                    return_random_if_equal=True,
+                                    random_state=self.random_state,
                                 )
                             else:
-                                k = np.random.choice([i, j])
+                                k = self.random_state.choice([i, j])
 
                             winners.append(k)
 
@@ -446,7 +451,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
                         if len(winners) < n_winners:
                             H = set(winners)
 
-                            random.shuffle(pool)
+                            self.random_state.shuffle(pool)
 
                             for k in pool:
                                 if k not in H:
@@ -466,8 +471,8 @@ class GPSAF(SurrogateAssistedAlgorithm):
     def _advance(self, infills=None, **kwargs):
 
         if self.restart:
-            for k in np.random.permutation(len(infills)):
-                opt = np.random.choice(self.opt)
+            for k in self.random_state.permutation(len(infills)):
+                opt = self.random_state.choice(self.opt)
                 if get_relation(opt, infills[k]) >= 0:
                     infills[k] = opt
                     break
@@ -508,7 +513,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
             doe = []
             for c in cluster:
                 if len(c) > 0:
-                    s = np.random.choice(c)
+                    s = self.random_state.choice(c)
                     doe.append(s)
 
             doe = self._archive[doe]

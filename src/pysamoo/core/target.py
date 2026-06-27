@@ -70,7 +70,10 @@ class Target:
         X, y = trn.get("X"), self._get_y(trn)
 
         if tst is None:
-            X, y, partitions = X, y, CrossvalidationPartitioning(self.n_folds).do(len(trn))
+            # Deterministic (strided) folds: the default randomize=True shuffles via
+            # the global `random` module, a source of run-to-run irreproducibility.
+            # Strided assignment interleaves DOE and later infills evenly anyway.
+            X, y, partitions = X, y, CrossvalidationPartitioning(self.n_folds, randomize=False).do(len(trn))
         else:
             _X, _y = tst.get("X"), self._get_y(tst)
             X, y, partitions = merge_and_partition((X, y), (_X, _y))
@@ -115,8 +118,10 @@ class Target:
             if len(models) == 1:
                 break
 
-        # finally find the best model using the indicator
-        return np.random.choice(models)
+        # Deterministic tie-break: keep the first survivor in the (stable) pool
+        # order. kendall_tau returns an integer disorder count, so ties are common;
+        # a random pick here was a key source of run-to-run irreproducibility.
+        return models[0]
 
     def fit(self, sols):
         assert self.best is not None, "You need to do one initial validation to find the best model for this target."

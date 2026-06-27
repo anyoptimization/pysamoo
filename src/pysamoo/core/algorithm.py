@@ -86,7 +86,11 @@ class SurrogateAssistedAlgorithm(Algorithm):
             self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
 
     def _initialize_infill(self):
-        self.infills = self.initialization.do(self.problem, self.n_initial_doe, algorithm=self)
+        # Thread the run's Generator into sampling so the initial DOE is
+        # reproducible (pymoo's samplers default to a fresh RNG otherwise).
+        self.infills = self.initialization.do(
+            self.problem, self.n_initial_doe, algorithm=self, random_state=self.random_state
+        )
         return self.infills
 
     def _initialize_advance(self, infills=None, **kwargs):

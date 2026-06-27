@@ -77,7 +77,7 @@ Each loop iteration:
 | H2 | **Closed-form LOO-CV** (GPML eq. 5.12) selects the same model as 5-fold at a fraction of cost | new strategy; later `target.py`/`ezmodel` | LOO-rank vs kfold-rank agreement; cost | same top-1 ≥90% of cases, ≥3× faster, deterministic | pending |
 | H3 | **Lazy re-selection** every k iters (wire up dead `nth_validate`) keeps convergence | `algorithm.py`/`gpsaf.py` `_advance` | full-run IGD/gap vs k∈{1,5,10} at fixed budget | IGD within +5% at k≥5, large wall-clock drop | pending |
 | H4 | **Cap GP fit to L-nearest subset** bounds O(n³) without hurting generalization | `_doe()` / fit path | RMSE & cost vs cap L∈{80,160,∞}, large n | cost ~constant in n, RMSE within +5% | pending |
-| H5 | **Seed folds + deterministic tie-break** ⇒ reproducible runs, no quality change | `target.py:73`, `target.py:119` | determinism check + RMSE unchanged | identical selection across runs; RMSE unchanged | **confirmed** for selection (seeding); ship + golden test |
+| H5 | **Reproducible runs under a fixed seed** | thread `random_state` everywhere + deterministic CV folds + deterministic tie-break | run each algorithm twice, assert identical | identical results across runs | **SHIPPED** — see below; `tests/test_reproducibility.py` guards GPSAF/PSAF/SSANSGA2 |
 | H6 | **PRESS-weighted ensemble** ≥ single-best generalization, free uncertainty | `target.py` find_best/predict | ensemble vs best RMSE on suite | RMSE ≤ best, no extra fits | pending |
 | H7 | **Rank by log pseudo-likelihood** (not integer kendall_tau) removes frequent ties | `target.py` indicators | tie frequency; selection stability | fewer ties, stable choice | pending |
 
@@ -101,7 +101,8 @@ Stop when **either**:
 | 2026-06-27 | 0 | baseline | full(38), 5-fold, ackley/rastrigin n=40/80 | 0.7–1.4 s | ackley 0.70–0.80; rastrigin 15.7–18.8 | **no** (unseeded folds) | reference |
 | 2026-06-27 | 0 | H1 first look | small(3) | 0.02 s | ackley 4.5–33; rastrigin 149–171 | n/a | **rejected** (kills generalization) |
 | 2026-06-27 | 1 | H1 | family(8) | 0.07–0.12 s | ackley 0.69–0.80; rastrigin 15.7–18.5 (≈full) | n/a | **confirmed** (~10× faster, RMSE within tol) — TODO: MOO + constraints |
-| 2026-06-27 | 1 | H5 | full(38), seeded folds | same | unchanged | **yes** (identical across runs) | **confirmed** — TODO: ship + deterministic tie-break |
+| 2026-06-27 | 1 | H5 | full(38), seeded folds | same | unchanged | **yes** (identical across runs) | **confirmed** |
+| 2026-06-27 | 2 | H5 | **SHIPPED**: random_state threaded through GPSAF/PSAF/SSANSGA2 + deterministic CV folds (`randomize=False`) + deterministic tie-break (`models[0]`) | unchanged | unchanged | **yes** — all 3 algos bit-identical across runs | **done** — guarded by `tests/test_reproducibility.py` |
 
 ---
 
@@ -125,12 +126,16 @@ When a hypothesis is confirmed *and* you decide to ship it, make the change in
 - H1 confirmed on single-objective; **next**: rerun H1 on a multi-objective problem
   (e.g. `zdt1`) and on constraint pools (`DEFAULT_IEQ_CONSTR_MODELS` has 36) — those
   pools are even larger and likely have the same redundancy.
-- H5 (seeding) is the cheapest shippable win and unblocks **full-run golden tests**
-  (currently only deterministic kernels are baselined; see `tests/test_golden.py`).
-  Shipping H5 should pair `CrossvalidationPartitioning(self.n_folds, seed=…)` at
-  `target.py:73` with a deterministic tie-break at `target.py:119`, *and* thread
-  pymoo's per-run `self.random_state` into pysamoo's global-RNG sites
-  (`gpsaf.py`, `psaf.py`) so the *whole* run — not just selection — is reproducible.
+- H5 **DONE**. The whole run is now reproducible: `self.random_state` is threaded
+  through every stochastic site in `gpsaf.py` (tournament/alpha/beta/restart),
+  `psaf.py`, `ssansga2.py` (roulette selection), `knockout.noisy`, the DOE sampling
+  (`algorithm.py` `_initialize_infill`), pymoo's `compare`/`RouletteWheelSelection`
+  (which accept `random_state`); CV folds are deterministic (`randomize=False`) and
+  the tie-break is `models[0]`. **Best practice followed: thread the Generator, never
+  seed globals.** Guarded by `tests/test_reproducibility.py`. Note: this enables a
+  same-machine full-run golden if ever wanted, but a *fixed-value* golden may differ
+  across BLAS/platforms because GP model selection can flip on float noise — the
+  equality-across-runs test is the robust guard.
 - H2 (closed-form LOO) is the highest-impact algorithmic change but needs care:
   pysamoo's RBF defaults are interpolating (H_ii = 1 ⇒ PRESS degenerates), so LOO
   applies cleanly to Kriging/GP and *regularized* RBF only.

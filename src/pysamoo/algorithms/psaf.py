@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 
-import numpy as np
 from ezmodel.core.factory import models_from_clazzes
 from ezmodel.models.knn import KNN
 from ezmodel.models.kriging import Kriging
@@ -143,7 +142,7 @@ class PSAF(SurrogateAssistedAlgorithm):
         # if algorithm shall be continued on the surrogate and there is a bias at all
         if self.beta > 0 and bias > 0.0:
             # already calculate what individuals will be replaced later
-            replace = np.random.random(len(off)) <= bias
+            replace = self.random_state.random(len(off)) <= bias
 
             # if at least one is replaced actually simulate the algorithm on the surrogate
             if replace.sum() > 0:

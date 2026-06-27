@@ -76,7 +76,7 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
                 if len(group) > 0:
                     fitness = cand[group].get("crowding").argsort()
                     selection = RouletteWheelSelection(fitness, larger_is_better=False)
-                    I = group[selection.next()]
+                    I = group[selection.next(random_state=self.random_state)]
                     S.append(I)
 
             infills = Population.new(X=cand[S].get("X"))

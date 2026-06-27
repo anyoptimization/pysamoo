@@ -113,13 +113,14 @@ def calc_prob_relation(a, b, error=None, n_comparisons=1):
     return rel
 
 
-def noisy(sols, error):
+def noisy(sols, error, random_state=None):
+    rng = random_state if random_state is not None else np.random
     out = {}
     for type in ["X", "F", "G", "H"]:
         out[type] = np.copy(sols.get(type))
 
     for (type, k), std in error.items():
-        out[type][:, k] += np.random.normal(loc=0.0, scale=std, size=len(sols))
+        out[type][:, k] += rng.normal(loc=0.0, scale=std, size=len(sols))
 
     noisy = Population.new(**out)
     TotalConstraintViolation().do(noisy, inplace=True)

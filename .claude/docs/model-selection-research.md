@@ -47,7 +47,16 @@ Sources: `src/pysamoo/core/{target,defaults,surrogate,algorithm}.py`,
   (ARD optimizes one θ per dimension); (2) **GP O(n³)** in archive size n;
   (3) **pool × folds** = 190 fits; (4) RBF SVD solves (cheap by comparison).
 
-## 3. Why runs are non-reproducible (root cause)
+## 3. Why runs were non-reproducible (root cause — now FIXED)
+
+> **Status (2026-06-27): resolved.** `self.random_state` is now threaded through
+> every stochastic site (DOE sampling, GPSAF/PSAF/SSANSGA2 infill, `knockout.noisy`,
+> pymoo `compare`/`RouletteWheelSelection`), CV folds are deterministic
+> (`randomize=False`), and the tie-break is `models[0]`. All three algorithms are
+> bit-reproducible under a fixed seed; guarded by `tests/test_reproducibility.py`.
+> Best practice applied: thread the `Generator`, never seed globals (NumPy's
+> guidance). The historical analysis below is retained for context.
+
 
 pymoo 0.6.1 changed seeding: `Algorithm.setup` now creates a **local**
 `np.random.default_rng(seed)` and **no longer seeds the global `np.random`/`random`**.
