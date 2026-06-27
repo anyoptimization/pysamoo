@@ -7,8 +7,8 @@ from pymoo.operators.sampling.lhs import LHS
 from pymoo.util.normalization import ZeroToOneNormalization
 
 from pysamoo.core.defaults import DEFAULT_EQ_CONSTR_MODELS, DEFAULT_IEQ_CONSTR_MODELS, DEFAULT_OBJ_MODELS
+from pysamoo.core.selection import resolve as resolve_selection
 from pysamoo.core.surrogate import Surrogate
-from pysamoo.core.target import Target
 
 
 def default_n_doe(n, max=float("inf")):
@@ -17,7 +17,14 @@ def default_n_doe(n, max=float("inf")):
 
 class SurrogateAssistedAlgorithm(Algorithm):
     def __init__(
-        self, n_initial_doe=None, n_initial_max_doe=100, sampling=LHS(), nth_validate=5, surrogate=None, **kwargs
+        self,
+        n_initial_doe=None,
+        n_initial_max_doe=100,
+        sampling=LHS(),
+        nth_validate=5,
+        surrogate=None,
+        selection="full",
+        **kwargs,
     ):
         """
         Parameters
@@ -31,9 +38,19 @@ class SurrogateAssistedAlgorithm(Algorithm):
         sampling : class
             The initial sampling being used for the designs of experiment.
 
+        selection : str or callable
+            Pluggable model-selection strategy for the default surrogate — a name
+            registered in :data:`pysamoo.core.selection.STRATEGIES` or a Target
+            factory ``(label, models) -> Target``. ``"full"`` cross-validates the
+            whole pool every iteration (most accurate, slowest); ``"racing"`` keeps
+            an adaptive shrinking active set (:class:`~pysamoo.core.racing.RacingTarget`)
+            — far faster on large archives at near-identical accuracy. Ignored if
+            ``surrogate`` is given.
+
         """
         super().__init__(**kwargs)
 
+        self.selection = selection
         self.n_initial_doe = n_initial_doe
         self.n_initial_max_doe = n_initial_max_doe
         self.initialization = Initialization(sampling)
@@ -61,22 +78,23 @@ class SurrogateAssistedAlgorithm(Algorithm):
             xl, xu = problem.bounds()
             defaults = dict(norm_X=MyNormalization(xl, xu))
 
+            # the model-selection strategy is pluggable: resolve it to a target
+            # factory (label, models) -> Target. "full", "racing", or any factory.
+            make_target = resolve_selection(self.selection)
+
             targets = []
 
             models = DEFAULT_OBJ_MODELS(**defaults)
             for m in range(problem.n_obj):
-                target = Target(("F", m), models)
-                targets.append(target)
+                targets.append(make_target(("F", m), models))
 
             models = DEFAULT_IEQ_CONSTR_MODELS(**defaults)
             for g in range(problem.n_ieq_constr):
-                target = Target(("G", g), models)
-                targets.append(target)
+                targets.append(make_target(("G", g), models))
 
             models = DEFAULT_EQ_CONSTR_MODELS(**defaults)
             for h in range(problem.n_eq_constr):
-                target = Target(("H", h), models)
-                targets.append(target)
+                targets.append(make_target(("H", h), models))
 
             # create the surrogate model
             self.surrogate = Surrogate(problem, targets)
