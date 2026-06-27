@@ -118,6 +118,7 @@ Stop when **either**:
 | 2026-06-27 | 4 | H8 | **SHIPPED**: `RacingTarget` + pluggable `selection="racing"` (modular registry) | real GPSAF run: pool shrinks 38→24→18→12→9; ~20-25% faster | equal quality | reproducible | **done** — `tests/test_selection.py` |
 | 2026-06-27 | 5 | H3 | **SHIPPED**: `revalidate()` honors `nth_validate` (lazy re-selection). GPSAF Ackley(10), 220 evals, n_max_doe=200 | nth=1: 42s → **nth=5: 11s (~3.8×)**; racing+nth=5: **10.5s (~4×)** | best_F equal/better (3.78 → 2.59) | reproducible | **done** — biggest single wall-time win; stacks with racing |
 | 2026-06-27 | 6 | H2 | LOO-CV vs 5-fold as model selectors (ackley/rastrigin/sphere, 9-model pool, 5 seeds) | n/a (selection-quality study) | **5-fold picks better-generalizing model** (Ackley gap 0.0001 vs LOO 0.0246); disagree 20–40% | n/a | **REJECTED** — confirms field experience that LOO is less robust; keep 5-fold |
+| 2026-06-27 | 7 | H3+H8 on BO | route BO's model selection through the shared Target/RacingTarget + revalidate (measured: selection = **90%** of BO runtime, acquisition only 10%) | BO model_selection=True, Sphere(10), 50 gens: **179s → 42s (~4.3×)** | best_F equal/better (0.084 → 0.041) | reproducible (shared machinery) | **done** — BO reuses the same machinery, no duplicated racing code |
 
 ---
 
