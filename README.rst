@@ -14,6 +14,11 @@ pysamoo - Surrogate-Assisted Multi-objective Optimization
 
 The software documentation is available here: https://anyoptimization.com/projects/pysamoo/
 
+Developer guides (in this repository):
+
+- ``docs/PERFORMANCE.md`` — why surrogate-assisted runs can be slow and how to speed them up.
+- ``docs/BENCHMARKING.md`` — measuring solution quality and developing better algorithms/models.
+
 Installation
 ====================================================================
 
