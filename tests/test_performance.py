@@ -29,6 +29,7 @@ from pymoo.problems.multi import ZDT1
 from pymoo.problems.single import Ackley
 from pymoo.util.ref_dirs import get_reference_directions
 
+from pysamoo.algorithms.csea import CSEA
 from pysamoo.algorithms.ehvi import EHVI
 from pysamoo.algorithms.gpsaf import GPSAF
 from pysamoo.algorithms.krvea import KRVEA
@@ -91,6 +92,9 @@ def scores():
         # K-RVEA vs plain RVEA on 3-objective DTLZ2 at an equal (small) budget.
         "rvea": igd3(run(dtlz2, RVEA(ref_dirs=ref), 150)),
         "krvea": igd3(run(dtlz2, KRVEA(ref_dirs=ref, n_initial_doe=50, n_infills=5), 150)),
+        # CSEA (classification surrogate) vs NSGA2 on 3-objective DTLZ2 at an equal budget.
+        "nsga2_dtlz2": igd3(run(dtlz2, NSGA2(pop_size=20, n_offsprings=10), 150)),
+        "csea": igd3(run(dtlz2, CSEA(n_initial_doe=50, n_infills=5), 150)),
     }
 
 
@@ -145,6 +149,11 @@ def test_moead_ego_beats_nsga2(scores):
 def test_tsemo_beats_nsga2(scores):
     """TSEMO reaches a clearly lower IGD than NSGA2 on ZDT1 with fewer evaluations."""
     assert scores["tsemo"] < 0.7 * scores["nsga2"], scores
+
+
+def test_csea_beats_nsga2(scores):
+    """CSEA (classification surrogate) reaches a lower IGD than NSGA2 on 3-objective DTLZ2."""
+    assert scores["csea"] < scores["nsga2_dtlz2"], scores
 
 
 # --- golden: exact seed-1 scores for drift tracking ---

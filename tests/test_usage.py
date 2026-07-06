@@ -23,12 +23,14 @@ from pymoo.problems.multi import SRN, ZDT1
 from pymoo.problems.single import Ackley, Sphere
 from pymoo.util.ref_dirs import get_reference_directions
 
+from pysamoo.algorithms.csea import CSEA
 from pysamoo.algorithms.ehvi import EHVI
 from pysamoo.algorithms.gpsaf import GPSAF
 from pysamoo.algorithms.krvea import KRVEA
 from pysamoo.algorithms.moead_ego import MOEADEGO
 from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
+from pysamoo.algorithms.saasbo import SAASBO
 from pysamoo.algorithms.ssansga2 import SSANSGA2
 from pysamoo.algorithms.tsemo import TSEMO
 from pysamoo.algorithms.turbo import TuRBO
@@ -124,6 +126,17 @@ def _tsemo():
     )
 
 
+def _csea():
+    """usage_csea: classification-surrogate-assisted EA on a 3-objective problem."""
+    algo = CSEA(n_initial_doe=10, n_infills=2, n_offspring=40)
+    return minimize(get_problem("dtlz2", n_var=5, n_obj=3), algo, ("n_evals", 13), seed=1, verbose=False)
+
+
+def _saasbo():
+    """usage_saasbo: sparse axis-aligned BO (MAP scaffold) on a single-objective problem."""
+    return minimize(Ackley(n_var=5), SAASBO(n_initial_doe=10), ("n_evals", 12), seed=1, verbose=False)
+
+
 def _lqcmaes():
     """usage_lqcmaes: surrogate-assisted (local quadratic) CMA-ES."""
     from pysamoo.vendor.lqcmaes import lqCMAES
@@ -159,6 +172,8 @@ SCENARIOS = [
     pytest.param(_turbo, id="turbo"),
     pytest.param(_moead_ego, id="moead_ego"),
     pytest.param(_tsemo, id="tsemo"),
+    pytest.param(_csea, id="csea"),
+    pytest.param(_saasbo, id="saasbo"),
     pytest.param(_lqcmaes, id="lqcmaes"),
     pytest.param(_bo, id="bayesian_optimization"),
     pytest.param(

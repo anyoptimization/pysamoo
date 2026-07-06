@@ -1,9 +1,10 @@
 {
   "test_golden_performance": {
     "atol": 1e-10,
-    "hash": "sha256:bba828374274502941f4782003ee414bd2912890cd56dfab3159bbac22850c47",
+    "hash": "sha256:407c6305ad82fbe1fbceb2651920445635bb07858adc517335d7e78e91284020",
     "rtol": 1e-07,
     "value": {
+      "csea": 0.220609,
       "de": 12.484896,
       "ehvi": 0.026214,
       "ga": 16.608973,
@@ -11,6 +12,7 @@
       "krvea": 0.132321,
       "moead_ego": 0.157535,
       "nsga2": 0.889562,
+      "nsga2_dtlz2": 0.277255,
       "parego": 0.454022,
       "psaf_de": 5.004292,
       "psaf_ga": 2.891681,
