@@ -20,6 +20,7 @@ from pymoo.optimize import minimize
 from pymoo.problems.multi import ZDT1
 from pymoo.problems.single import Ackley
 
+from pysamoo.algorithms.ehvi import EHVI
 from pysamoo.algorithms.gpsaf import GPSAF
 from pysamoo.algorithms.krvea import KRVEA
 from pysamoo.algorithms.parego import ParEGO
@@ -64,10 +65,14 @@ def _krvea():
     return (get_problem("dtlz2", n_var=5, n_obj=3), algo, ("n_evals", 20))
 
 
+def _ehvi():
+    return (ZDT1(n_var=5), EHVI(n_initial_doe=12, pool=40, n_screen=6, n_samples=6), ("n_evals", 20))
+
+
 @pytest.mark.parametrize(
     "build",
-    [_gpsaf, _psaf, _ssansga2, _parego, _krvea],
-    ids=["gpsaf", "psaf", "ssansga2", "parego", "krvea"],
+    [_gpsaf, _psaf, _ssansga2, _parego, _krvea, _ehvi],
+    ids=["gpsaf", "psaf", "ssansga2", "parego", "krvea", "ehvi"],
 )
 def test_same_seed_is_reproducible(build):
     """Two runs with the same seed produce identical objective values."""

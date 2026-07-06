@@ -23,6 +23,7 @@ from pymoo.problems.multi import SRN, ZDT1
 from pymoo.problems.single import Ackley, Sphere
 from pymoo.util.ref_dirs import get_reference_directions
 
+from pysamoo.algorithms.ehvi import EHVI
 from pysamoo.algorithms.gpsaf import GPSAF
 from pysamoo.algorithms.krvea import KRVEA
 from pysamoo.algorithms.parego import ParEGO
@@ -96,6 +97,12 @@ def _krvea():
     return minimize(get_problem("dtlz2", n_var=5, n_obj=3), algo, ("n_evals", 13), seed=1, verbose=False)
 
 
+def _ehvi():
+    """usage_ehvi: Expected Hypervolume Improvement BO on a bi-objective problem."""
+    algo = EHVI(n_initial_doe=10, pool=40, n_screen=6, n_samples=6)
+    return minimize(ZDT1(n_var=5), algo, ("n_evals", 12), seed=1, verbose=False)
+
+
 def _lqcmaes():
     """usage_lqcmaes: surrogate-assisted (local quadratic) CMA-ES."""
     from pysamoo.vendor.lqcmaes import lqCMAES
@@ -127,6 +134,7 @@ SCENARIOS = [
     pytest.param(_ssansga2, id="ssansga2"),
     pytest.param(_parego, id="parego"),
     pytest.param(_krvea, id="krvea"),
+    pytest.param(_ehvi, id="ehvi"),
     pytest.param(_lqcmaes, id="lqcmaes"),
     pytest.param(_bo, id="bayesian_optimization"),
     pytest.param(

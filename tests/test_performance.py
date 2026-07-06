@@ -29,6 +29,7 @@ from pymoo.problems.multi import ZDT1
 from pymoo.problems.single import Ackley
 from pymoo.util.ref_dirs import get_reference_directions
 
+from pysamoo.algorithms.ehvi import EHVI
 from pysamoo.algorithms.gpsaf import GPSAF
 from pysamoo.algorithms.krvea import KRVEA
 from pysamoo.algorithms.parego import ParEGO
@@ -76,6 +77,8 @@ def scores():
         "ssansga2": _igd(zdt1, run(zdt1, SSANSGA2(n_initial_doe=50, n_infills=10, surr_pop_size=100), 200)),
         # ParEGO reaches a strong front with far fewer evals (120 vs NSGA2's 200) -- a stronger claim.
         "parego": _igd(zdt1, run(zdt1, ParEGO(n_initial_doe=30), 120)),
+        # EHVI (hypervolume-based MOO-BO), also with fewer evals than the NSGA2 baseline.
+        "ehvi": _igd(zdt1, run(zdt1, EHVI(n_initial_doe=30), 120)),
         # K-RVEA vs plain RVEA on 3-objective DTLZ2 at an equal (small) budget.
         "rvea": igd3(run(dtlz2, RVEA(ref_dirs=ref), 150)),
         "krvea": igd3(run(dtlz2, KRVEA(ref_dirs=ref, n_initial_doe=50, n_infills=5), 150)),
@@ -113,6 +116,11 @@ def test_parego_beats_nsga2(scores):
 def test_krvea_beats_rvea(scores):
     """K-RVEA reaches a lower IGD than plain RVEA on 3-objective DTLZ2 at an equal budget."""
     assert scores["krvea"] < 0.7 * scores["rvea"], scores
+
+
+def test_ehvi_beats_nsga2(scores):
+    """EHVI reaches a clearly lower IGD than NSGA2 on ZDT1 -- with fewer evaluations (120 vs 200)."""
+    assert scores["ehvi"] < 0.7 * scores["nsga2"], scores
 
 
 # --- golden: exact seed-1 scores for drift tracking ---

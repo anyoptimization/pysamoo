@@ -1,10 +1,11 @@
 {
   "test_golden_performance": {
     "atol": 1e-10,
-    "hash": "sha256:12ab68d3d40921943690a75022f5cf0cfd540efdb72a4f73dcbab7223ca23a15",
+    "hash": "sha256:99254583f98a51b6558074cfbb681cc7e48812a00fe19093209d292d7df23166",
     "rtol": 1e-07,
     "value": {
       "de": 12.484896,
+      "ehvi": 0.026214,
       "ga": 16.608973,
       "gpsaf": 0.019155,
       "krvea": 0.132321,
