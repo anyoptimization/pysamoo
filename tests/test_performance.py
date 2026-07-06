@@ -27,6 +27,7 @@ from pymoo.problems.multi import ZDT1
 from pymoo.problems.single import Ackley
 
 from pysamoo.algorithms.gpsaf import GPSAF
+from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
 
@@ -63,6 +64,8 @@ def scores():
         "nsga2": _igd(zdt1, run(zdt1, NSGA2(pop_size=20, n_offsprings=10), 200)),
         "gpsaf": _igd(zdt1, run(zdt1, GPSAF(NSGA2(pop_size=20, n_offsprings=10), **_GPSAF_KW), 200)),
         "ssansga2": _igd(zdt1, run(zdt1, SSANSGA2(n_initial_doe=50, n_infills=10, surr_pop_size=100), 200)),
+        # ParEGO reaches a strong front with far fewer evals (120 vs NSGA2's 200) -- a stronger claim.
+        "parego": _igd(zdt1, run(zdt1, ParEGO(n_initial_doe=30), 120)),
     }
 
 
@@ -87,6 +90,11 @@ def test_gpsaf_beats_nsga2(scores):
 def test_ssansga2_beats_nsga2(scores):
     """SSANSGA2 reaches a lower IGD than plain NSGA2 on ZDT1 at this (favourable) seed."""
     assert scores["ssansga2"] < scores["nsga2"], scores
+
+
+def test_parego_beats_nsga2(scores):
+    """ParEGO reaches a clearly lower IGD than NSGA2 on ZDT1 -- with fewer evaluations (120 vs 200)."""
+    assert scores["parego"] < 0.7 * scores["nsga2"], scores
 
 
 # --- golden: exact seed-1 scores for drift tracking ---

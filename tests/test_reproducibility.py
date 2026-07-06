@@ -21,6 +21,7 @@ from pymoo.problems.multi import ZDT1
 from pymoo.problems.single import Ackley
 
 from pysamoo.algorithms.gpsaf import GPSAF
+from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
 
@@ -49,7 +50,11 @@ def _ssansga2():
     )
 
 
-@pytest.mark.parametrize("build", [_gpsaf, _psaf, _ssansga2], ids=["gpsaf", "psaf", "ssansga2"])
+def _parego():
+    return (ZDT1(n_var=5), ParEGO(n_initial_doe=12), ("n_evals", 20))
+
+
+@pytest.mark.parametrize("build", [_gpsaf, _psaf, _ssansga2, _parego], ids=["gpsaf", "psaf", "ssansga2", "parego"])
 def test_same_seed_is_reproducible(build):
     """Two runs with the same seed produce identical objective values."""
     r1 = _run(build)

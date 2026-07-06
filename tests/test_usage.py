@@ -24,6 +24,7 @@ from pymoo.problems.single import Ackley, Sphere
 from pymoo.util.ref_dirs import get_reference_directions
 
 from pysamoo.algorithms.gpsaf import GPSAF
+from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
 
@@ -79,6 +80,11 @@ def _ssansga2():
     return minimize(ZDT1(n_var=5), algo, ("n_evals", 11), seed=1, verbose=False)
 
 
+def _parego():
+    """usage_parego: ParEGO (scalarized multi-objective EGO) on a bi-objective problem."""
+    return minimize(ZDT1(n_var=5), ParEGO(n_initial_doe=10), ("n_evals", 11), seed=1, verbose=False)
+
+
 def _lqcmaes():
     """usage_lqcmaes: surrogate-assisted (local quadratic) CMA-ES."""
     from pysamoo.vendor.lqcmaes import lqCMAES
@@ -87,14 +93,10 @@ def _lqcmaes():
 
 
 def _bo():
-    """usage_bayesian_optimization: GP-based Bayesian optimization.
-
-    ``model_selection=False`` avoids the per-generation cross-validation over the
-    full Kriging hyperparameter grid (the cause of the demo's >180s runtime).
-    """
+    """usage_bayesian_optimization: GP-based Bayesian optimization over one DACE surrogate."""
     from pysamoo.experimental.bo import BayesianOptimization
 
-    return minimize(Sphere(n_var=5), BayesianOptimization(model_selection=False), ("n_gen", 2), seed=1, verbose=False)
+    return minimize(Sphere(n_var=5), BayesianOptimization(), ("n_gen", 2), seed=1, verbose=False)
 
 
 def _smac():
@@ -112,6 +114,7 @@ SCENARIOS = [
     pytest.param(_gpsaf_constr, id="gpsaf_constr"),
     pytest.param(_psaf, id="psaf"),
     pytest.param(_ssansga2, id="ssansga2"),
+    pytest.param(_parego, id="parego"),
     pytest.param(_lqcmaes, id="lqcmaes"),
     pytest.param(_bo, id="bayesian_optimization"),
     pytest.param(
