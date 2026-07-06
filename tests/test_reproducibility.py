@@ -21,6 +21,7 @@ from pymoo.problems.multi import ZDT1
 from pymoo.problems.single import Ackley
 
 from pysamoo.algorithms.gpsaf import GPSAF
+from pysamoo.algorithms.krvea import KRVEA
 from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
@@ -54,7 +55,20 @@ def _parego():
     return (ZDT1(n_var=5), ParEGO(n_initial_doe=12), ("n_evals", 20))
 
 
-@pytest.mark.parametrize("build", [_gpsaf, _psaf, _ssansga2, _parego], ids=["gpsaf", "psaf", "ssansga2", "parego"])
+def _krvea():
+    from pymoo.problems import get_problem
+    from pymoo.util.ref_dirs import get_reference_directions
+
+    ref = get_reference_directions("das-dennis", 3, n_partitions=4)
+    algo = KRVEA(ref_dirs=ref, n_initial_doe=12, n_infills=2, w_max=5)
+    return (get_problem("dtlz2", n_var=5, n_obj=3), algo, ("n_evals", 20))
+
+
+@pytest.mark.parametrize(
+    "build",
+    [_gpsaf, _psaf, _ssansga2, _parego, _krvea],
+    ids=["gpsaf", "psaf", "ssansga2", "parego", "krvea"],
+)
 def test_same_seed_is_reproducible(build):
     """Two runs with the same seed produce identical objective values."""
     r1 = _run(build)

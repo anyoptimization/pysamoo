@@ -19,14 +19,18 @@ not the every-edit gate.
 import numpy as np
 import pytest
 from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.algorithms.moo.rvea import RVEA
 from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.algorithms.soo.nonconvex.ga import GA
 from pymoo.indicators.igd import IGD
 from pymoo.optimize import minimize
+from pymoo.problems import get_problem
 from pymoo.problems.multi import ZDT1
 from pymoo.problems.single import Ackley
+from pymoo.util.ref_dirs import get_reference_directions
 
 from pysamoo.algorithms.gpsaf import GPSAF
+from pysamoo.algorithms.krvea import KRVEA
 from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
@@ -52,9 +56,15 @@ def scores():
     """Run each baseline and its SAO wrapper once at a fixed seed; return the comparison scores."""
     ackley = Ackley(n_var=10)
     zdt1 = ZDT1(n_var=10)
+    ref = get_reference_directions("das-dennis", 3, n_partitions=12)
+    dtlz2 = get_problem("dtlz2", n_var=8, n_obj=3)
+    igd_dtlz2 = IGD(dtlz2.pareto_front(ref))
 
     def run(problem, algo, n_evals):
         return minimize(problem, algo, ("n_evals", n_evals), seed=SEED, verbose=False)
+
+    def igd3(res):
+        return float(igd_dtlz2(np.atleast_2d(np.asarray(res.F, dtype=float))))
 
     return {
         "ga": _f_gap(ackley, run(ackley, GA(pop_size=20, n_offsprings=10), 300)),
@@ -66,6 +76,9 @@ def scores():
         "ssansga2": _igd(zdt1, run(zdt1, SSANSGA2(n_initial_doe=50, n_infills=10, surr_pop_size=100), 200)),
         # ParEGO reaches a strong front with far fewer evals (120 vs NSGA2's 200) -- a stronger claim.
         "parego": _igd(zdt1, run(zdt1, ParEGO(n_initial_doe=30), 120)),
+        # K-RVEA vs plain RVEA on 3-objective DTLZ2 at an equal (small) budget.
+        "rvea": igd3(run(dtlz2, RVEA(ref_dirs=ref), 150)),
+        "krvea": igd3(run(dtlz2, KRVEA(ref_dirs=ref, n_initial_doe=50, n_infills=5), 150)),
     }
 
 
@@ -95,6 +108,11 @@ def test_ssansga2_beats_nsga2(scores):
 def test_parego_beats_nsga2(scores):
     """ParEGO reaches a clearly lower IGD than NSGA2 on ZDT1 -- with fewer evaluations (120 vs 200)."""
     assert scores["parego"] < 0.7 * scores["nsga2"], scores
+
+
+def test_krvea_beats_rvea(scores):
+    """K-RVEA reaches a lower IGD than plain RVEA on 3-objective DTLZ2 at an equal budget."""
+    assert scores["krvea"] < 0.7 * scores["rvea"], scores
 
 
 # --- golden: exact seed-1 scores for drift tracking ---

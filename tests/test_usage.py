@@ -24,6 +24,7 @@ from pymoo.problems.single import Ackley, Sphere
 from pymoo.util.ref_dirs import get_reference_directions
 
 from pysamoo.algorithms.gpsaf import GPSAF
+from pysamoo.algorithms.krvea import KRVEA
 from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
@@ -85,6 +86,16 @@ def _parego():
     return minimize(ZDT1(n_var=5), ParEGO(n_initial_doe=10), ("n_evals", 11), seed=1, verbose=False)
 
 
+def _krvea():
+    """usage_krvea: Kriging-assisted RVEA on a 3-objective problem."""
+    from pymoo.problems import get_problem
+    from pymoo.util.ref_dirs import get_reference_directions
+
+    ref = get_reference_directions("das-dennis", 3, n_partitions=4)
+    algo = KRVEA(ref_dirs=ref, n_initial_doe=10, n_infills=2, w_max=5)
+    return minimize(get_problem("dtlz2", n_var=5, n_obj=3), algo, ("n_evals", 13), seed=1, verbose=False)
+
+
 def _lqcmaes():
     """usage_lqcmaes: surrogate-assisted (local quadratic) CMA-ES."""
     from pysamoo.vendor.lqcmaes import lqCMAES
@@ -115,6 +126,7 @@ SCENARIOS = [
     pytest.param(_psaf, id="psaf"),
     pytest.param(_ssansga2, id="ssansga2"),
     pytest.param(_parego, id="parego"),
+    pytest.param(_krvea, id="krvea"),
     pytest.param(_lqcmaes, id="lqcmaes"),
     pytest.param(_bo, id="bayesian_optimization"),
     pytest.param(
