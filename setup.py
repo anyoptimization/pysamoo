@@ -26,7 +26,7 @@ data = dict(
     python_requires='>=3.7',
     author_email="blankjul@msu.edu",
     description="Surrogate-Assisted Multi-objective Optimization",
-    license='GNU AFFERO GENERAL PUBLIC LICENSE (AGPL)',
+    license='PolyForm Noncommercial License 1.0.0',
     keywords="surrogate, metamodel, bayesian optimization",
     install_requires=["pymoo>=0.6.1.5,<0.6.2", "ezmodel"],
     extras_require={
@@ -37,7 +37,7 @@ data = dict(
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'Operating System :: OS Independent',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: Other/Proprietary License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',

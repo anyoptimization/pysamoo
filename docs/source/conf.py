@@ -9,20 +9,23 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath("../../src"))
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'pysamoo'
-copyright = '2022, Julian Blank'
+copyright = '2022-2026, Julian Blank'
 author = 'Julian Blank'
 
-# The full version, including alpha/beta/rc tags
-release = '0.1'
+# The full version, kept in sync with the package (single source of truth).
+from pysamoo.version import __version__  # noqa: E402
+
+version = __version__
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -53,6 +56,5 @@ html_theme = "sphinx_rtd_theme"
 html_static_path = ['_static']
 html_logo = "_static/pysamoo.png"
 html_theme_options = {
-    'logo_only': True,
-    'display_version': False,
+    'collapse_navigation': False,
 }

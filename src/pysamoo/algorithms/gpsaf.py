@@ -503,7 +503,11 @@ class GPSAF(SurrogateAssistedAlgorithm):
         doe = self._archive
 
         if len(doe) > n_max_doe:
-            center = LHS().do(self.problem, n_max_doe).get("X")
+            # Thread the run's Generator into the LHS: without it, pymoo falls back to an unseeded
+            # default_rng(), so the cluster centers -- and therefore which archive points are kept
+            # for the surrogate once the archive exceeds n_max_doe -- were random each run. That was
+            # the sole source of GPSAF's run-to-run irreproducibility (it only bit past n_max_doe).
+            center = LHS().do(self.problem, n_max_doe, random_state=self.random_state).get("X")
             A = cdist(doe.get("X"), center).argmin(axis=1)
 
             cluster = [[] for _ in range(n_max_doe)]

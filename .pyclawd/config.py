@@ -1,7 +1,15 @@
 """pysamoo's pyclawd config — drives `pyclawd test/lint/typecheck/...` for this repo.
 """
 
-from pyclawd import DescriptionConfig, DoctorConfig, GoldenConfig, Project, QualityConfig, TestConfig
+from pyclawd import (
+    DescriptionConfig,
+    DocsConfig,
+    DoctorConfig,
+    GoldenConfig,
+    Project,
+    QualityConfig,
+    TestConfig,
+)
 
 project = Project(
     name='pysamoo',
@@ -37,9 +45,16 @@ project = Project(
         rtol=1e-7,
         atol=1e-10,
     ),
+    docs=DocsConfig(
+        # A thin runner maps `pyclawd docs <verb>` onto a Sphinx build of the single,
+        # pre-executed index.ipynb (nbsphinx reuses stored outputs; no re-execution).
+        runner=["python", "docs/runner.py"],
+        source_dir="docs/source",
+        build_html="docs/build/html",
+    ),
     doctor=DoctorConfig(
         core_deps=["pymoo", "ezmodel"],
-        dev_deps=["pytest", "pytest-xdist", "pytest-cov"],
+        dev_deps=["pytest", "pytest-xdist", "pytest-cov", "sphinx", "nbsphinx", "sphinx_rtd_theme"],
         tool_files=[],
         binaries=[
             ("ruff", "pip install ruff"),

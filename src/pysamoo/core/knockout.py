@@ -30,17 +30,17 @@ def is_better(a, b):
     return ~ret
 
 
-def comp(a, b, error=None):
+def comp(a, b, error=None, random_state=None):
     if error is not None:
-        a = noisy(a, error)
-        b = noisy(b, error)
+        a = noisy(a, error, random_state=random_state)
+        b = noisy(b, error, random_state=random_state)
     ret = is_better(a, b)
     return ret
 
 
-def pcomp(sols, pairs, error=None):
+def pcomp(sols, pairs, error=None, random_state=None):
     a, b = pairs.T
-    a_is_better_than_b = comp(sols[a], sols[b], error=error)
+    a_is_better_than_b = comp(sols[a], sols[b], error=error, random_state=random_state)
 
     ret = np.copy(b)
     ret[a_is_better_than_b] = a[a_is_better_than_b]
@@ -48,9 +48,12 @@ def pcomp(sols, pairs, error=None):
     return ret
 
 
-def knockout(sols, n_winners=1, error=None):
+def knockout(sols, n_winners=1, error=None, random_state=None):
+    # thread the run's Generator (falling back to the global np.random) so tournaments are reproducible
+    rng = random_state if random_state is not None else np.random
+
     # create a copy of all solutions to be considered
-    pool = list(np.random.permutation(len(sols)))
+    pool = list(rng.permutation(len(sols)))
 
     # until we have found a clear winner of the tournament
     while len(pool) > n_winners:
@@ -66,14 +69,14 @@ def knockout(sols, n_winners=1, error=None):
         pairs = np.reshape(pool, (-1, 2))
 
         # now add all the winners as well from this tournament
-        W = pcomp(sols, pairs, error=error)
+        W = pcomp(sols, pairs, error=error, random_state=random_state)
         winners.extend(W)
 
         # that means we have now less than we want - fill up with random solutions from pool
         if len(winners) < n_winners:
             S = set(winners)
 
-            for k in np.random.permutation(len(sols)):
+            for k in rng.permutation(len(sols)):
                 # if not added yet then add it
                 if k not in S:
                     winners.append(k)
@@ -96,19 +99,20 @@ class NoisyReplacement(ReplacementSurvival):
         return comp(off, pop, error=self.error)
 
 
-def calc_prob_relation(a, b, error=None, n_comparisons=1):
+def calc_prob_relation(a, b, error=None, n_comparisons=1, random_state=None):
+    rng = random_state if random_state is not None else np.random
     ret = []
 
     for k in range(n_comparisons):
         if error is not None:
-            _a, _b = noisy(Population.create(a, b), error)
+            _a, _b = noisy(Population.create(a, b), error, random_state=random_state)
         else:
             _a, _b = a, b
 
         _rel = get_relation(_a, _b)
         ret.append(_rel)
 
-    rel = np.random.choice([val for val, freq in Counter(ret).most_common()])
+    rel = rng.choice([val for val, freq in Counter(ret).most_common()])
 
     return rel
 
