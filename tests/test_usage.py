@@ -26,9 +26,11 @@ from pymoo.util.ref_dirs import get_reference_directions
 from pysamoo.algorithms.ehvi import EHVI
 from pysamoo.algorithms.gpsaf import GPSAF
 from pysamoo.algorithms.krvea import KRVEA
+from pysamoo.algorithms.moead_ego import MOEADEGO
 from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
+from pysamoo.algorithms.tsemo import TSEMO
 from pysamoo.algorithms.turbo import TuRBO
 
 _HAS_SMAC = importlib.util.find_spec("smac") is not None
@@ -109,6 +111,19 @@ def _turbo():
     return minimize(Ackley(n_var=5), TuRBO(n_initial_doe=10, n_candidates=50), ("n_evals", 12), seed=1, verbose=False)
 
 
+def _moead_ego():
+    """usage_moead_ego: decomposition-based EGO with a batch infill on a bi-objective problem."""
+    algo = MOEADEGO(n_initial_doe=10, n_infills=2, pool=40)
+    return minimize(ZDT1(n_var=5), algo, ("n_evals", 12), seed=1, verbose=False)
+
+
+def _tsemo():
+    """usage_tsemo: Thompson-sampling multi-objective BO on a bi-objective problem."""
+    return minimize(
+        ZDT1(n_var=5), TSEMO(n_initial_doe=10, n_infills=2, pool=40), ("n_evals", 12), seed=1, verbose=False
+    )
+
+
 def _lqcmaes():
     """usage_lqcmaes: surrogate-assisted (local quadratic) CMA-ES."""
     from pysamoo.vendor.lqcmaes import lqCMAES
@@ -142,6 +157,8 @@ SCENARIOS = [
     pytest.param(_krvea, id="krvea"),
     pytest.param(_ehvi, id="ehvi"),
     pytest.param(_turbo, id="turbo"),
+    pytest.param(_moead_ego, id="moead_ego"),
+    pytest.param(_tsemo, id="tsemo"),
     pytest.param(_lqcmaes, id="lqcmaes"),
     pytest.param(_bo, id="bayesian_optimization"),
     pytest.param(

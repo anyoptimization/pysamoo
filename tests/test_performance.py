@@ -32,9 +32,11 @@ from pymoo.util.ref_dirs import get_reference_directions
 from pysamoo.algorithms.ehvi import EHVI
 from pysamoo.algorithms.gpsaf import GPSAF
 from pysamoo.algorithms.krvea import KRVEA
+from pysamoo.algorithms.moead_ego import MOEADEGO
 from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
+from pysamoo.algorithms.tsemo import TSEMO
 from pysamoo.algorithms.turbo import TuRBO
 
 pytestmark = pytest.mark.slow
@@ -80,6 +82,9 @@ def scores():
         "parego": _igd(zdt1, run(zdt1, ParEGO(n_initial_doe=30), 120)),
         # EHVI (hypervolume-based MOO-BO), also with fewer evals than the NSGA2 baseline.
         "ehvi": _igd(zdt1, run(zdt1, EHVI(n_initial_doe=30), 120)),
+        # MOEA/D-EGO (decomposition-based) and TSEMO (Thompson-sampling) MOO-BO.
+        "moead_ego": _igd(zdt1, run(zdt1, MOEADEGO(n_initial_doe=30), 120)),
+        "tsemo": _igd(zdt1, run(zdt1, TSEMO(n_initial_doe=30), 120)),
         # TuRBO (trust-region BO) vs the GA baseline on Ackley, with fewer evals (200 vs 300).
         # Note: TuRBO-1 is variance-prone across seeds; this pins the (strong) seed-1 result.
         "turbo": _f_gap(ackley, run(ackley, TuRBO(n_initial_doe=20), 200)),
@@ -130,6 +135,16 @@ def test_ehvi_beats_nsga2(scores):
 def test_turbo_beats_ga(scores):
     """TuRBO converges far below plain GA on Ackley at this (favourable) seed, with fewer evals."""
     assert scores["turbo"] < 0.5 * scores["ga"], scores
+
+
+def test_moead_ego_beats_nsga2(scores):
+    """MOEA/D-EGO reaches a clearly lower IGD than NSGA2 on ZDT1 with fewer evaluations."""
+    assert scores["moead_ego"] < 0.7 * scores["nsga2"], scores
+
+
+def test_tsemo_beats_nsga2(scores):
+    """TSEMO reaches a clearly lower IGD than NSGA2 on ZDT1 with fewer evaluations."""
+    assert scores["tsemo"] < 0.7 * scores["nsga2"], scores
 
 
 # --- golden: exact seed-1 scores for drift tracking ---

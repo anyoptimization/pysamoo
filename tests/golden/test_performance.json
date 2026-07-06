@@ -1,7 +1,7 @@
 {
   "test_golden_performance": {
     "atol": 1e-10,
-    "hash": "sha256:97cab54a5b9ae82186f2fd964694a7c07cc951db5e36bb76cef189c6f83a1079",
+    "hash": "sha256:bba828374274502941f4782003ee414bd2912890cd56dfab3159bbac22850c47",
     "rtol": 1e-07,
     "value": {
       "de": 12.484896,
@@ -9,12 +9,14 @@
       "ga": 16.608973,
       "gpsaf": 0.019155,
       "krvea": 0.132321,
+      "moead_ego": 0.157535,
       "nsga2": 0.889562,
       "parego": 0.454022,
       "psaf_de": 5.004292,
       "psaf_ga": 2.891681,
       "rvea": 0.306741,
       "ssansga2": 0.007882,
+      "tsemo": 0.332392,
       "turbo": 0.676662
     }
   }

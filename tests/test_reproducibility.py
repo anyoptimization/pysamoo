@@ -23,9 +23,11 @@ from pymoo.problems.single import Ackley
 from pysamoo.algorithms.ehvi import EHVI
 from pysamoo.algorithms.gpsaf import GPSAF
 from pysamoo.algorithms.krvea import KRVEA
+from pysamoo.algorithms.moead_ego import MOEADEGO
 from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
+from pysamoo.algorithms.tsemo import TSEMO
 from pysamoo.algorithms.turbo import TuRBO
 
 
@@ -74,10 +76,18 @@ def _turbo():
     return (Ackley(n_var=5), TuRBO(n_initial_doe=12, n_candidates=50), ("n_evals", 20))
 
 
+def _moead_ego():
+    return (ZDT1(n_var=5), MOEADEGO(n_initial_doe=12, n_infills=2, pool=40), ("n_evals", 20))
+
+
+def _tsemo():
+    return (ZDT1(n_var=5), TSEMO(n_initial_doe=12, n_infills=2, pool=40), ("n_evals", 20))
+
+
 @pytest.mark.parametrize(
     "build",
-    [_gpsaf, _psaf, _ssansga2, _parego, _krvea, _ehvi, _turbo],
-    ids=["gpsaf", "psaf", "ssansga2", "parego", "krvea", "ehvi", "turbo"],
+    [_gpsaf, _psaf, _ssansga2, _parego, _krvea, _ehvi, _turbo, _moead_ego, _tsemo],
+    ids=["gpsaf", "psaf", "ssansga2", "parego", "krvea", "ehvi", "turbo", "moead_ego", "tsemo"],
 )
 def test_same_seed_is_reproducible(build):
     """Two runs with the same seed produce identical objective values."""
