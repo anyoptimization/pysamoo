@@ -29,6 +29,7 @@ from pysamoo.algorithms.krvea import KRVEA
 from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
+from pysamoo.algorithms.turbo import TuRBO
 
 _HAS_SMAC = importlib.util.find_spec("smac") is not None
 
@@ -103,6 +104,11 @@ def _ehvi():
     return minimize(ZDT1(n_var=5), algo, ("n_evals", 12), seed=1, verbose=False)
 
 
+def _turbo():
+    """usage_turbo: trust-region Bayesian optimization on a single-objective problem."""
+    return minimize(Ackley(n_var=5), TuRBO(n_initial_doe=10, n_candidates=50), ("n_evals", 12), seed=1, verbose=False)
+
+
 def _lqcmaes():
     """usage_lqcmaes: surrogate-assisted (local quadratic) CMA-ES."""
     from pysamoo.vendor.lqcmaes import lqCMAES
@@ -135,6 +141,7 @@ SCENARIOS = [
     pytest.param(_parego, id="parego"),
     pytest.param(_krvea, id="krvea"),
     pytest.param(_ehvi, id="ehvi"),
+    pytest.param(_turbo, id="turbo"),
     pytest.param(_lqcmaes, id="lqcmaes"),
     pytest.param(_bo, id="bayesian_optimization"),
     pytest.param(

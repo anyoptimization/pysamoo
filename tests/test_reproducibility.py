@@ -26,6 +26,7 @@ from pysamoo.algorithms.krvea import KRVEA
 from pysamoo.algorithms.parego import ParEGO
 from pysamoo.algorithms.psaf import PSAF
 from pysamoo.algorithms.ssansga2 import SSANSGA2
+from pysamoo.algorithms.turbo import TuRBO
 
 
 def _run(build):
@@ -69,10 +70,14 @@ def _ehvi():
     return (ZDT1(n_var=5), EHVI(n_initial_doe=12, pool=40, n_screen=6, n_samples=6), ("n_evals", 20))
 
 
+def _turbo():
+    return (Ackley(n_var=5), TuRBO(n_initial_doe=12, n_candidates=50), ("n_evals", 20))
+
+
 @pytest.mark.parametrize(
     "build",
-    [_gpsaf, _psaf, _ssansga2, _parego, _krvea, _ehvi],
-    ids=["gpsaf", "psaf", "ssansga2", "parego", "krvea", "ehvi"],
+    [_gpsaf, _psaf, _ssansga2, _parego, _krvea, _ehvi, _turbo],
+    ids=["gpsaf", "psaf", "ssansga2", "parego", "krvea", "ehvi", "turbo"],
 )
 def test_same_seed_is_reproducible(build):
     """Two runs with the same seed produce identical objective values."""
