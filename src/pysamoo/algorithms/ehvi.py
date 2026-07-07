@@ -88,13 +88,35 @@ class EHVI(SurrogateAssistedAlgorithm):
         top = np.argsort(-opt_hvi)[: self.n_screen]
 
         # Monte-Carlo EHVI on the screened candidates
-        ehvi = np.zeros(len(top))
-        for j, i in enumerate(top):
-            samples = mu[i] + sigma[i] * self.random_state.standard_normal((self.n_samples, n_obj))
-            ehvi[j] = np.mean([hvi(s) for s in samples])
+        ehvi = np.array(
+            [self.expected_hvi(mu[i], sigma[i], front, hv, hv0, self.n_samples, self.random_state) for i in top]
+        )
 
         x_best = cand[top[int(ehvi.argmax())]]
         return Population.new(X=x_best[None, :])
+
+    @staticmethod
+    def expected_hvi(mu, sigma, front, hv, hv0, n_samples, random_state):
+        """Monte-Carlo Expected Hypervolume Improvement of one Gaussian-predicted candidate.
+
+        Averages ``max(0, HV(front + sample) - hv0)`` over ``n_samples`` draws from the independent
+        per-objective Gaussian posterior ``N(mu, diag(sigma^2))``. Exposed as a static method so the
+        acquisition can be checked against exact 2-objective EHVI / grid quadrature (fidelity tests).
+
+        Args:
+            mu: Predicted objective means of the candidate, shape ``(n_obj,)``.
+            sigma: Predictive standard deviations of the candidate, shape ``(n_obj,)``.
+            front: The current non-dominated objective vectors, shape ``(k, n_obj)``.
+            hv: A ``pymoo`` ``HV`` indicator with the reference point already set.
+            hv0: The hypervolume of ``front`` (so it is not recomputed per sample).
+            n_samples: Number of Monte-Carlo posterior samples.
+            random_state: A numpy ``Generator`` for the samples.
+
+        Returns:
+            The Monte-Carlo EHVI estimate (a float).
+        """
+        samples = mu + sigma * random_state.standard_normal((n_samples, len(mu)))
+        return float(np.mean([max(0.0, float(hv(np.vstack([front, s]))) - hv0) for s in samples]))
 
     def _set_optimum(self):
         nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)

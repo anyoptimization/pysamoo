@@ -59,8 +59,7 @@ class CSEA(SurrogateAssistedAlgorithm):
         cand = self._offspring(X, xl, xu, rng)
 
         # label the archive: "good" = non-dominated rank at or below the median rank
-        ranks = NonDominatedSorting().do(F, return_rank=True)[1]
-        good = ranks <= np.median(ranks)
+        good = self.label_good(F)
 
         # if the labels are degenerate (all one class), no classifier is possible -> pick at random
         if good.all() or (~good).all():
@@ -76,6 +75,22 @@ class CSEA(SurrogateAssistedAlgorithm):
 
         sel = np.argsort(-score)[: self.n_infills]
         return Population.new(X=cand[sel])
+
+    @staticmethod
+    def label_good(F):
+        """Binary "good" label per objective vector: non-dominated rank at or below the median rank.
+
+        Exposed as a static method so the classification target can be checked directly against
+        non-dominated ranks in the fidelity tests.
+
+        Args:
+            F: Objective matrix, shape ``(n, n_obj)``.
+
+        Returns:
+            A boolean array, ``True`` for the "good" (better-than-median-rank) rows.
+        """
+        ranks = NonDominatedSorting().do(F, return_rank=True)[1]
+        return ranks <= np.median(ranks)
 
     def _set_optimum(self):
         nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
