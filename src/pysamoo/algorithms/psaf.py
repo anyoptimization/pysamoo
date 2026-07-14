@@ -83,7 +83,6 @@ class PSAF(SurrogateAssistedAlgorithm):
         defaults = dict(norm_X=ZeroToOneNormalization(xl, xu))
 
         models = models_from_clazzes(RBF, **defaults)
-        models = {name: entry["model"] for name, entry in models.items()}
         models = {**models, **{"krg-cont": Kriging(regr="constant"), "krg-lin": Kriging(regr="linear")}}
 
         if "baseline" not in models:

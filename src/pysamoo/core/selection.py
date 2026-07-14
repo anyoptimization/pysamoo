@@ -8,8 +8,6 @@ Built-in strategies:
 
 * ``"full"``   — :class:`~pysamoo.core.target.Target`: cross-validate the whole
   pool every iteration (most accurate, slowest).
-* ``"racing"`` — :class:`~pysamoo.core.racing.RacingTarget`: keep an adaptive,
-  shrinking active set (far faster on large archives, near-identical accuracy).
 
 Add a new strategy by registering another :class:`~pysamoo.core.target.Target`
 subclass in :data:`STRATEGIES`, or pass any factory directly to an algorithm's
@@ -17,12 +15,10 @@ subclass in :data:`STRATEGIES`, or pass any factory directly to an algorithm's
 not hard-code which strategy they use.
 """
 
-from pysamoo.core.racing import RacingTarget
 from pysamoo.core.target import Target
 
 STRATEGIES = {
     "full": Target,
-    "racing": RacingTarget,
 }
 
 

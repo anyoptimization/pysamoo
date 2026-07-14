@@ -1,25 +1,20 @@
+"""Bayesian optimization over a pluggable pysurrogate surrogate (model selection by default)."""
+
 import matplotlib.pyplot as plt
 import numpy as np
-from ezmodel.core.factory import models_from_clazzes
-from ezmodel.models.kriging import Kriging
 from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
-from pymoo.algorithms.soo.nonconvex.ga_niching import NicheGA
 from pymoo.core.callback import Callback
 from pymoo.core.population import Population
-from pymoo.operators.sampling.lhs import LHS
-from pymoo.optimize import minimize
 from pymoo.termination.default import DefaultSingleObjectiveTermination
 from pymoo.util.display.column import Column
-
-from pymoo.util.display.output import Output
 from pymoo.util.display.single import SingleObjectiveOutput
-from pymoo.util.normalization import ZeroToOneNormalization
+from pysurrogate.dace import Exponential
+from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
-from pysamoo.core.selection import resolve as resolve_selection
-from pysamoo.core.surrogate import Surrogate
-from pysamoo.experimental.acquisition import EI, AcquisitionProblem
-
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.experimental.acquisition import AcquisitionProblem, LogEI
+from pysamoo.experimental.infill import GlobalEI, Hybrid
+from pysamoo.experimental.optimizer import VectorizedGradientDescent
 
 # ---------------------------------------------------------------------------------------------------------
 # Display
@@ -27,7 +22,6 @@ from pysamoo.experimental.acquisition import EI, AcquisitionProblem
 
 
 class EGOOutput(SingleObjectiveOutput):
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.output = SingleObjectiveOutput()
@@ -35,162 +29,132 @@ class EGOOutput(SingleObjectiveOutput):
         self.f_new = Column(name="f_new")
         self.acq = Column(name="acq")
 
-        self.model = [Column(name="regr", func=lambda a: a._chosen_model.regr),
-                      Column(name="corr", func=lambda a: a._chosen_model.corr),
-                      Column(name="ARD", func=lambda a: a._chosen_model.ARD)
-                      ]
-
     def initialize(self, algorithm):
         self.output.initialize(algorithm)
         self.columns = self.output.columns + [self.f_new, self.acq]
-        if algorithm.model_selection:
-            self.columns += self.model
 
     def update(self, algorithm):
         bo = algorithm
         self.output.update(bo)
 
         if algorithm.acq is not None:
-
             self.f_new.set(bo.infills.get("F").min())
             self.acq.set(bo.infills.get("acq").min())
-
-            if bo.model_selection:
-                for col in self.model:
-                    col.update(bo)
 
 
 # ---------------------------------------------------------------------------------------------------------
 # Implementation
 # ---------------------------------------------------------------------------------------------------------
 
+
+def default_surrogate():
+    """The default BO surrogate: a single Exponential-kernel Kriging model.
+
+    The method-search benchmark (``experimental/benchmark.py``) showed a *fixed* ``Kriging[exp]``
+    beats cross-validated ``AutoModel`` over the Kriging fleet on the ECDF score **and runs
+    ~2x faster** -- the per-infill model selection is not worth its cost in the low-data BO regime,
+    and the Exponential kernel's heavier tails generalize well across the difficulty spectrum
+    (Sphere/Rosenbrock/Rastrigin/RotatedEllipsoid). For per-problem kernel selection pass
+    ``surrogate=AutoModel(default_kriging())`` explicitly; any pysurrogate Model works.
+    """
+    return Kriging(corr=Exponential())
+
+
 class BayesianOptimization(SurrogateAssistedAlgorithm):
+    def __init__(
+        self,
+        acq_func=LogEI(),
+        optimizer=VectorizedGradientDescent(),
+        infill=None,
+        surrogate=None,
+        nth_optimize=10,
+        output=EGOOutput(),
+        **kwargs,
+    ):
 
-    def __init__(self,
-                 acq_func=EI(),
-                 model_selection=False,
-                 racing=True,
-                 nth_validate=5,
-                 adaptive_fmin=True,
-                 output=EGOOutput(),
-                 **kwargs):
-
-        super().__init__(output=output, nth_validate=nth_validate, **kwargs)
+        super().__init__(output=output, **kwargs)
         self.default_termination = DefaultSingleObjectiveTermination()
 
-        self.model_selection = model_selection
-        # which selection strategy to use for the Kriging grid when model_selection
-        # is on: reuse the shared, pluggable strategies ("racing" -> RacingTarget,
-        # "full" -> Target). No bespoke racing logic here.
-        self.selection = "racing" if racing else "full"
+        # optimizer: any pysamoo.experimental.optimizer.Optimizer instance, used by the default
+        # GlobalEI infill. VectorizedGradientDescent climbs EI by the surrogate's analytic
+        # mean/variance gradients. It requires an EI acquisition; for a non-EI one (POI/UCB) pass
+        # GeneticAlgorithm.
+        self.optimizer = optimizer
         self.acq_func = acq_func
-        self.adaptive_fmin = adaptive_fmin
         self.acq = None
 
-        # the surrogate target for the objective (built lazily in _infill once the
-        # problem bounds are known); holds the shared CV-selection + racing state
-        self._target = None
+        # infill_strategy: the pluggable "where to sample next" strategy
+        # (pysamoo.experimental.infill.Infill). Default Hybrid = global EI exploration that hands off
+        # to a local quadratic-Newton refinement once EI stalls (and back again), which drives the
+        # incumbent far deeper than pure global EI in higher dimensions. Pass GlobalEI(optimizer) for
+        # the plain global-EI step, or LocalQuadratic() for pure local refinement. (Named *_strategy
+        # to avoid shadowing pymoo Algorithm's own ``infill()`` method.)
+        self.infill_strategy = infill if infill is not None else Hybrid(GlobalEI(optimizer))
+
+        # surrogate: ANY pysurrogate Model -- it IS the surrogate, used directly via fit/predict.
+        # Default is model selection over the Kriging fleet (default_surrogate()); pass e.g.
+        # ``Kriging(corr=Gaussian())`` for a fixed, faster surrogate, or any other pysurrogate Model.
+        self.surrogate = surrogate if surrogate is not None else default_surrogate()
+
+        # nth_optimize: the surrogate is fit ONCE on the DOE (which also runs model selection), then
+        # *refit* with the new points each infill. Re-optimizing theta every refit is wasteful, so
+        # only do it every nth refit (optimize=True) and otherwise refit cheaply (optimize=False).
+        # 1 = optimize every refit; None = never re-optimize after the first fit.
+        self.nth_optimize = nth_optimize
+        self._n_seen = 0
+        self._n_refit = 0
+
+        # the fitted surrogate for the current infill (set lazily in _infill by get_model()).
+        self._model = None
+
+    def _setup(self, problem, **kwargs):
+        # BO uses its own pysurrogate surrogate (fit lazily in _infill); it never uses the base
+        # class's surrogate layer, so skip building it and only fix the initial DOE size.
+        if self.n_initial_doe is None:
+            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
 
     def _infill(self):
 
-        # get all the points that have been evaluated yet
+        # all evaluated points so far
         X, F = self._archive.get("X", "F")
-
-        # get the problem and the boundaries
+        y = F[:, 0]
         problem = self.problem
-        xl, xu = problem.bounds()
 
-        # the defaults for surrogate modeling - normalize the values to be between zero and one
-        defaults = dict(norm_X=ZeroToOneNormalization(xl, xu))
+        # The surrogate is a pysurrogate Model used directly (fit/refit/predict on the object itself
+        # -- if it is an AutoModel it runs selection inside its fit). It is fit LAZILY via
+        # get_model() so a purely local infill step (LocalQuadratic) skips it. The FIRST call fits;
+        # later calls refit only the new points, re-optimizing theta every nth_optimize-th refit.
+        def get_model():
+            if self._model is None:
+                self._model = self.surrogate.fit(X, y)
+                self._n_seen = len(X)
+            elif len(X) > self._n_seen:
+                self._n_refit += 1
+                optimize = self.nth_optimize is not None and self._n_refit % self.nth_optimize == 0
+                self.surrogate.refit(X[self._n_seen :], y[self._n_seen :], optimize=optimize)
+                self._n_seen = len(X)
+            return self._model
 
-        # rather the best model should be selected or simply the default kriging implementation taken
-        if self.model_selection:
-            # Reuse the shared selection machinery over a Kriging-only grid:
-            # Target/RacingTarget does the cross-validated selection (and racing),
-            # and self.revalidate() applies the lazy nth_validate gate. Between
-            # re-selections the chosen model is simply refit on the new data.
-            if self._target is None:
-                grid = models_from_clazzes(Kriging, **defaults)
-                grid = {name: entry["model"] for name, entry in grid.items()}
-                self._target = resolve_selection(self.selection)(("F", 0), grid)
-                self.surrogate = Surrogate(problem, [self._target])
-            self.revalidate(self._archive)
-            self._target.fit(self._archive)
-            model = self._target.obj
-        else:
-            model = Kriging(regr="linear", corr="gauss", ARD=True, **defaults)
-            model.fit(X, F[:, 0])
+        # EI improves over the incumbent -- the best objective observed so far.
+        f_min = float(y.min())
 
-        if self.adaptive_fmin:
+        # the pluggable infill strategy chooses the next point (GlobalEI fits + maximizes the
+        # acquisition; Hybrid/LocalQuadratic add a surrogate-free local quadratic-Newton step).
+        x_best, acq_val = self.infill_strategy.do(problem, get_model, X, y, self.acq_func, self.random_state)
 
-            # get the acquisition problem to be optimized
-            acq = robust_fmin_acquisition(problem, model, self.acq_func, self._archive)
-
-        else:
-            # just use the minimum (even though this can lead to precision issues)
-            _min = F[:, 0].argmin()
-            f_min = model.predict(X[_min])[0, 0]
-            acq = AcquisitionProblem(problem, model, self.acq_func, f_min=f_min)
-
-        # use a bigger latin hypercube in the beginning because the problem might be highly multi-modal
-        sampling = LHS().do(problem, 500)
-
-        algorithm = NicheGA(pop_size=50, sampling=sampling)
-
-        termination = DefaultSingleObjectiveTermination(period=1)
-
-        res = minimize(acq,
-                       algorithm,
-                       termination,
-                       verbose=False
-                       )
-
-        X, F = res.opt.get("X", "F")
-
-        self.acq = acq
-        self._chosen_model = model  # the fitted surrogate used this iteration (for output)
-        return Population.new(X=X, acq=F)[[0]]
+        # AcquisitionProblem is kept only for the output/visualization, when a model was fit.
+        if self._model is not None:
+            self.acq = AcquisitionProblem(problem, self._model, self.acq_func, f_min=f_min)
+        return Population.new(X=x_best[None, :], acq=np.array([[acq_val]]))[[0]]
 
     def _set_optimum(self):
         self.opt = FitnessSurvival().do(self.problem, self._archive, n_survive=1)
 
 
-def robust_fmin_acquisition(problem, model, acq_func, points):
-    X, F = points.get("X", "F")
-
-    sorted_by_pred = np.sort(model.predict(X)[:, 0])
-
-    n_intervals = min(20, len(X))
-    n_points = 500
-
-    interval = int(len(sorted_by_pred) / n_intervals)
-
-    for cnt in range(n_intervals):
-
-        # increase the index for f_min in each iteration
-        f_min = sorted_by_pred[cnt * interval]
-
-        # create the acquisition problem and radomly sample
-        acq = AcquisitionProblem(problem, model, acq_func, f_min=f_min)
-        sampling = LHS().do(problem, n_points)
-
-        # the maximum value found of during random sampling
-        max_prob_imprv = (- acq.evaluate(sampling.get("X"))).max()
-
-        # print(cnt, sorted_by_pred[0], f_min, max_prob_imprv)
-
-        # if the value is not very small then the fmin is okay to be used
-        if max_prob_imprv > 1e-2:
-            break
-
-    return acq
-
-
 class EGOVisualization(Callback):
-
     def notify(self, algorithm):
         problem = algorithm.problem
-        if problem.n_var > 1 or problem.n_obj > 1 or algorithm.surrogate is None:
+        if problem.n_var > 1 or problem.n_obj > 1 or algorithm._model is None:
             return
 
         fig = plt.figure()
@@ -207,15 +171,16 @@ class EGOVisualization(Callback):
 
         mesh = np.linspace(problem.xl[0], problem.xu[0], 1000)[:, None]
 
-        gp = algorithm.surrogate
-        mu, sigma = gp.predict(mesh, return_values_of=["y", "sigma"])
+        gp = algorithm._model
+        pred = gp.predict(mesh, var=True)
+        mu, sigma = pred.y, pred.sigma
 
-        plt_func.fill_between(mesh[:, 0], (mu - 2 * sigma)[:, 0], (mu + 2 * sigma)[:, 0], alpha=0.2, color='k')
+        plt_func.fill_between(mesh[:, 0], (mu - 2 * sigma)[:, 0], (mu + 2 * sigma)[:, 0], alpha=0.2, color="k")
 
         plt_func.scatter(infill.X, infill.F, color="red", s=100, marker="x")
-        plt_func.plot(mesh, gp.predict(mesh), color="red")
+        plt_func.plot(mesh, mu, color="red")
 
-        plt_func.axvline(x=algorithm.infills[0].X, color="black", linestyle='dashed')
+        plt_func.axvline(x=algorithm.infills[0].X, color="black", linestyle="dashed")
 
         plt_func.plot(mesh, problem.evaluate(mesh), color="black")
 

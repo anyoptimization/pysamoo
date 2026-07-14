@@ -161,7 +161,8 @@ class Target:
 
     def predict(self, X, out):
         assert self.obj is not None, "The target has not been fitted yet."
-        v = self.obj.predict(X)
+        # ezmodel predict returns a Prediction wrapper; take its mean (.y)
+        v = self.obj.predict(X).y
         key, index = self.label
         out.get(key)[:, [index]] = v
 

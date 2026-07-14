@@ -42,10 +42,7 @@ class SurrogateAssistedAlgorithm(Algorithm):
             Pluggable model-selection strategy for the default surrogate — a name
             registered in :data:`pysamoo.core.selection.STRATEGIES` or a Target
             factory ``(label, models) -> Target``. ``"full"`` cross-validates the
-            whole pool every iteration (most accurate, slowest); ``"racing"`` keeps
-            an adaptive shrinking active set (:class:`~pysamoo.core.racing.RacingTarget`)
-            — far faster on large archives at near-identical accuracy. Ignored if
-            ``surrogate`` is given.
+            whole pool every iteration. Ignored if ``surrogate`` is given.
 
         """
         super().__init__(**kwargs)
@@ -79,7 +76,7 @@ class SurrogateAssistedAlgorithm(Algorithm):
             defaults = dict(norm_X=MyNormalization(xl, xu))
 
             # the model-selection strategy is pluggable: resolve it to a target
-            # factory (label, models) -> Target. "full", "racing", or any factory.
+            # factory (label, models) -> Target. "full" or any factory.
             make_target = resolve_selection(self.selection)
 
             targets = []
