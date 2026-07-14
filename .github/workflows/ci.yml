@@ -22,9 +22,19 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install package and dev tools
+      # The surrogate stack (pysurrogate/pydacefit/pysampling/ezmodel) is not yet released to PyPI
+      # with the APIs this branch needs (e.g. pydacefit.regr.ConstantRegression), so install the
+      # required states from git. TODO: pin to released versions once the stack is published.
+      - name: Install unreleased surrogate dependencies from git
         run: |
           python -m pip install --upgrade pip
+          pip install "git+https://github.com/anyoptimization/pysampling"
+          pip install "git+https://github.com/anyoptimization/ezmodel@main"
+          pip install "git+https://github.com/anyoptimization/pysurrogate@feat/fully-bayesian-gp"
+          pip install --force-reinstall --no-deps "git+https://github.com/msu-coinlab/pydacefit@main"
+
+      - name: Install package and dev tools
+        run: |
           pip install -e ".[dev]"
 
       - name: Lint (ruff)
