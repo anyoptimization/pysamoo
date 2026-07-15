@@ -6,7 +6,7 @@ from pymoo.util.display.multi import MultiObjectiveOutput
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from sklearn.neighbors import KNeighborsClassifier
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
 class CSEA(SurrogateAssistedAlgorithm):
@@ -27,16 +27,15 @@ class CSEA(SurrogateAssistedAlgorithm):
         p_mut: Per-coordinate mutation probability (defaults to ``1/n_var``).
     """
 
+    # uses a KNN classification surrogate, not the base default model pool.
+    build_default_surrogate = False
+
     def __init__(self, n_infills=5, n_offspring=200, n_neighbors=5, p_mut=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.n_infills = n_infills
         self.n_offspring = n_offspring
         self.n_neighbors = n_neighbors
         self.p_mut = p_mut
-
-    def _setup(self, problem, **kwargs):
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
 
     def _offspring(self, X, xl, xu, rng):
         # genetic offspring: blend recombination of two random parents + Gaussian mutation

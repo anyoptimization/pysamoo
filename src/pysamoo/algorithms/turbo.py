@@ -9,7 +9,7 @@ from pymoo.util.display.single import SingleObjectiveOutput
 from pysurrogate.dace import Exponential
 from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.experimental.acquisition import LogEI
 
 
@@ -35,6 +35,9 @@ class TuRBO(SurrogateAssistedAlgorithm):
         surrogate: pysurrogate Kriging prototype (default ``Kriging(Exponential())``).
         acq_func: Acquisition scored over the trust-region candidates (default ``LogEI``).
     """
+
+    # manages its own single-objective Kriging -> skip the base default-surrogate build.
+    build_default_surrogate = False
 
     def __init__(
         self,
@@ -65,9 +68,7 @@ class TuRBO(SurrogateAssistedAlgorithm):
         self._model = None
 
     def _setup(self, problem, **kwargs):
-        # manages its own single-objective Kriging -> skip the base single-surrogate build.
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+        super()._setup(problem, **kwargs)
         if self.n_candidates is None:
             self.n_candidates = min(1000, 100 * problem.n_var)
         if self.fail_tol is None:

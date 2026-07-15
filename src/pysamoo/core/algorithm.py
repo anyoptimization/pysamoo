@@ -25,6 +25,10 @@ def default_n_doe(n_var, cap=float("inf")):
 
 
 class SurrogateAssistedAlgorithm(Algorithm):
+    # whether _setup builds the default multi-target model pool; the EGO-style algorithms that
+    # manage their own per-objective models set this to False (and skip the expensive build).
+    build_default_surrogate = True
+
     def __init__(
         self,
         n_initial_doe=None,
@@ -74,37 +78,46 @@ class SurrogateAssistedAlgorithm(Algorithm):
         self._revalidate_count = 0
 
     def _setup(self, problem, **kwargs):
-
-        # initialize the default surrogate for the algorithm
-        if self.surrogate is None:
-            # the design space boundaries for the problem - used for normalization in the surrogate
-            xl, xu = problem.bounds()
-            defaults = dict(norm_X=MyNormalization(xl, xu))
-
-            # the model-selection strategy is pluggable: resolve it to a target
-            # factory (label, models) -> Target. "full" or any factory.
-            make_target = resolve_selection(self.selection)
-
-            targets = []
-
-            models = DEFAULT_OBJ_MODELS(**defaults)
-            for m in range(problem.n_obj):
-                targets.append(make_target(("F", m), models))
-
-            models = DEFAULT_IEQ_CONSTR_MODELS(**defaults)
-            for g in range(problem.n_ieq_constr):
-                targets.append(make_target(("G", g), models))
-
-            models = DEFAULT_EQ_CONSTR_MODELS(**defaults)
-            for h in range(problem.n_eq_constr):
-                targets.append(make_target(("H", h), models))
-
-            # create the surrogate model
-            self.surrogate = Surrogate(problem, targets)
-
         # set the number of DOE points initially
         if self.n_initial_doe is None:
             self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+
+        # build the default multi-target surrogate unless the algorithm manages its own models
+        if self.build_default_surrogate and self.surrogate is None:
+            self.surrogate = self._build_default_surrogate(problem)
+
+    def _build_default_surrogate(self, problem):
+        """Construct the default multi-target surrogate (one model pool per objective/constraint).
+
+        Args:
+            problem: The problem whose objective/constraint counts and bounds shape the surrogate.
+
+        Returns:
+            A :class:`~pysamoo.core.surrogate.Surrogate` with a selection-driven target per output.
+        """
+        # the design space boundaries for the problem - used for normalization in the surrogate
+        xl, xu = problem.bounds()
+        defaults = dict(norm_X=MyNormalization(xl, xu))
+
+        # the model-selection strategy is pluggable: resolve it to a target
+        # factory (label, models) -> Target. "full" or any factory.
+        make_target = resolve_selection(self.selection)
+
+        targets = []
+
+        models = DEFAULT_OBJ_MODELS(**defaults)
+        for m in range(problem.n_obj):
+            targets.append(make_target(("F", m), models))
+
+        models = DEFAULT_IEQ_CONSTR_MODELS(**defaults)
+        for g in range(problem.n_ieq_constr):
+            targets.append(make_target(("G", g), models))
+
+        models = DEFAULT_EQ_CONSTR_MODELS(**defaults)
+        for h in range(problem.n_eq_constr):
+            targets.append(make_target(("H", h), models))
+
+        return Surrogate(problem, targets)
 
     def revalidate(self, *args, **kwargs):
         """Re-run model selection lazily.

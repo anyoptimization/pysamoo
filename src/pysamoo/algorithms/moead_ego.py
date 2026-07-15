@@ -11,7 +11,7 @@ from pymoo.util.ref_dirs import get_reference_directions
 from pysurrogate.dace import Exponential
 from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
 class MOEADEGO(SurrogateAssistedAlgorithm):
@@ -33,6 +33,9 @@ class MOEADEGO(SurrogateAssistedAlgorithm):
         surrogate: pysurrogate Kriging prototype per objective (default ``Kriging(Exponential())``).
     """
 
+    # manages its own per-objective Kriging models -> skip the base default-surrogate build.
+    build_default_surrogate = False
+
     def __init__(self, ref_dirs=None, n_infills=5, kappa=2.0, pool=200, surrogate=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.ref_dirs = ref_dirs
@@ -42,8 +45,7 @@ class MOEADEGO(SurrogateAssistedAlgorithm):
         self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
 
     def _setup(self, problem, **kwargs):
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+        super()._setup(problem, **kwargs)
         if self.ref_dirs is None:
             n_partitions = {2: 99, 3: 12}.get(problem.n_obj, 6)
             self.ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=n_partitions)

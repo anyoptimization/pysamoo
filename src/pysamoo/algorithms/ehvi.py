@@ -11,7 +11,7 @@ from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pysurrogate.dace import Exponential
 from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
 class EHVI(SurrogateAssistedAlgorithm):
@@ -35,17 +35,15 @@ class EHVI(SurrogateAssistedAlgorithm):
         surrogate: pysurrogate Kriging prototype per objective (default ``Kriging(Exponential())``).
     """
 
+    # manages its own per-objective Kriging models -> skip the base default-surrogate build.
+    build_default_surrogate = False
+
     def __init__(self, pool=200, n_screen=20, n_samples=32, surrogate=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.pool = pool
         self.n_screen = n_screen
         self.n_samples = n_samples
         self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
-
-    def _setup(self, problem, **kwargs):
-        # manages its own per-objective Kriging models -> skip the base single-surrogate build.
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
 
     def _infill(self):
         X, F = self._archive.get("X", "F")

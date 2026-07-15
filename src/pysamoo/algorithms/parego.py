@@ -10,7 +10,7 @@ from pymoo.util.ref_dirs import get_reference_directions
 from pysurrogate.dace import Exponential
 from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.experimental.acquisition import LogEI
 from pysamoo.experimental.infill import GlobalEI
 from pysamoo.experimental.optimizer import VectorizedGradientDescent
@@ -39,6 +39,9 @@ class ParEGO(SurrogateAssistedAlgorithm):
         acq_func: The acquisition function on the scalar surrogate (default ``LogEI``).
     """
 
+    # ParEGO manages its own single-objective (scalar) surrogate -> skip the base build.
+    build_default_surrogate = False
+
     def __init__(self, rho=0.05, surrogate=None, infill=None, acq_func=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.rho = rho
@@ -49,10 +52,7 @@ class ParEGO(SurrogateAssistedAlgorithm):
         self._model = None
 
     def _setup(self, problem, **kwargs):
-        # ParEGO manages its own single-objective (scalar) surrogate, so -- like the experimental BO
-        # -- it deliberately skips the base class's multi-target surrogate build.
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+        super()._setup(problem, **kwargs)
         # a fixed Das-Dennis weight set; one is drawn at random per infill. The partition count is
         # picked so the set is neither tiny nor huge for the common 2-/3-objective cases.
         n_partitions = {2: 100, 3: 15}.get(problem.n_obj, 8)
