@@ -1,16 +1,18 @@
 """TSEMO -- Thompson-Sampling Efficient Multi-objective Optimization."""
 
-from copy import deepcopy
-
 import numpy as np
 from pymoo.core.population import Population
-from pymoo.indicators.hv import HV
-from pymoo.operators.sampling.lhs import LHS
 from pymoo.util.display.multi import MultiObjectiveOutput
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
-from pysurrogate.dace import Exponential
-from pysurrogate.models import Kriging
 
+from pysamoo.algorithms._ego import (
+    default_kriging,
+    fit_per_objective,
+    front_and_hv,
+    lhs_local_pool,
+    pareto_optimum,
+    predict_mu_sigma,
+)
 from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
@@ -37,35 +39,24 @@ class TSEMO(SurrogateAssistedAlgorithm):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.n_infills = n_infills
         self.pool = pool
-        self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
+        self.surrogate_proto = surrogate if surrogate is not None else default_kriging()
 
     def _infill(self):
         X, F = self._archive.get("X", "F")
         problem = self.problem
-        xl, xu = problem.xl, problem.xu
         rng = self.random_state
 
         # one Kriging per objective
-        models = [deepcopy(self.surrogate_proto) for _ in range(problem.n_obj)]
-        for m, model in enumerate(models):
-            model.fit(X, F[:, m])
+        models = fit_per_objective(self.surrogate_proto, X, F)
 
         # current front, reference point and hypervolume
-        nds = NonDominatedSorting().do(F, only_non_dominated_front=True)
-        front = F[nds]
-        z_min, z_max = F.min(axis=0), F.max(axis=0)
-        ref = z_max + 0.1 * np.maximum(z_max - z_min, 1e-9)
-        hv = HV(ref_point=ref)
+        nds, front, hv = front_and_hv(F)
 
         # candidate pool: LHS + local perturbations of the current non-dominated designs
-        cand = LHS().do(problem, self.pool, random_state=rng).get("X")
-        idx = rng.integers(len(nds), size=self.pool)
-        local = np.clip(X[nds][idx] + 0.05 * (xu - xl) * rng.standard_normal((self.pool, problem.n_var)), xl, xu)
-        cand = np.vstack([cand, local])
+        cand = lhs_local_pool(problem, X[nds], self.pool, rng)
 
         # Thompson sample: one posterior draw per objective at the candidates
-        mu = np.column_stack([model.predict(cand).y[:, 0] for model in models])
-        sigma = np.column_stack([model.predict(cand, var=True).sigma[:, 0] for model in models])
+        mu, sigma = predict_mu_sigma(models, cand)
         sample = mu + sigma * rng.standard_normal(mu.shape)
 
         # candidates that are Pareto-optimal under the sampled landscape
@@ -91,5 +82,4 @@ class TSEMO(SurrogateAssistedAlgorithm):
         return Population.new(X=cand[chosen])
 
     def _set_optimum(self):
-        nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
-        self.opt = self._archive[nds]
+        self.opt = pareto_optimum(self._archive)

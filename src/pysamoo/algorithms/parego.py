@@ -5,11 +5,9 @@ from copy import deepcopy
 import numpy as np
 from pymoo.core.population import Population
 from pymoo.util.display.multi import MultiObjectiveOutput
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.ref_dirs import get_reference_directions
-from pysurrogate.dace import Exponential
-from pysurrogate.models import Kriging
 
+from pysamoo.algorithms._ego import default_kriging, pareto_optimum
 from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.experimental.acquisition import LogEI
 from pysamoo.experimental.infill import GlobalEI
@@ -45,7 +43,7 @@ class ParEGO(SurrogateAssistedAlgorithm):
     def __init__(self, rho=0.05, surrogate=None, infill=None, acq_func=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.rho = rho
-        self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
+        self.surrogate_proto = surrogate if surrogate is not None else default_kriging()
         self.infill_strategy = infill if infill is not None else GlobalEI(VectorizedGradientDescent())
         self.acq_func = acq_func if acq_func is not None else LogEI()
         self.weights = None
@@ -81,5 +79,4 @@ class ParEGO(SurrogateAssistedAlgorithm):
         return Population.new(X=x_best[None, :])
 
     def _set_optimum(self):
-        nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
-        self.opt = self._archive[nds]
+        self.opt = pareto_optimum(self._archive)

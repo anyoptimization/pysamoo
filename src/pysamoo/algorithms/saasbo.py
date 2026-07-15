@@ -2,12 +2,12 @@
 
 from copy import deepcopy
 
-from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
 from pymoo.core.population import Population
 from pymoo.util.display.single import SingleObjectiveOutput
 from pysurrogate.dace import Exponential
 from pysurrogate.models import Kriging
 
+from pysamoo.algorithms._ego import best_optimum
 from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.experimental.acquisition import LogEI
 from pysamoo.experimental.infill import GlobalEI
@@ -69,4 +69,4 @@ class SAASBO(SurrogateAssistedAlgorithm):
         return Population.new(X=x_best[None, :])
 
     def _set_optimum(self):
-        self.opt = FitnessSurvival().do(self.problem, self._archive, n_survive=1)
+        self.opt = best_optimum(self.problem, self._archive)

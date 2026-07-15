@@ -6,6 +6,7 @@ from pymoo.util.display.multi import MultiObjectiveOutput
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from sklearn.neighbors import KNeighborsClassifier
 
+from pysamoo.algorithms._ego import pareto_optimum
 from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
@@ -92,5 +93,4 @@ class CSEA(SurrogateAssistedAlgorithm):
         return ranks <= np.median(ranks)
 
     def _set_optimum(self):
-        nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
-        self.opt = self._archive[nds]
+        self.opt = pareto_optimum(self._archive)

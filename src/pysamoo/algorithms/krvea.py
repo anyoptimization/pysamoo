@@ -1,18 +1,14 @@
 """K-RVEA -- Kriging-assisted reference-vector guided EA for expensive many-objective optimization."""
 
-from copy import deepcopy
-
 import numpy as np
 from pymoo.algorithms.moo.rvea import RVEA
 from pymoo.core.population import Population
 from pymoo.core.problem import Problem
 from pymoo.optimize import minimize as pymoo_minimize
 from pymoo.util.display.multi import MultiObjectiveOutput
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.ref_dirs import get_reference_directions
-from pysurrogate.dace import Exponential
-from pysurrogate.models import Kriging
 
+from pysamoo.algorithms._ego import default_kriging, fit_per_objective, pareto_optimum
 from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
@@ -60,7 +56,7 @@ class KRVEA(SurrogateAssistedAlgorithm):
         self.n_infills = n_infills
         self.w_max = w_max
         self.delta = delta
-        self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
+        self.surrogate_proto = surrogate if surrogate is not None else default_kriging()
         self._active_prev = None
 
     def _setup(self, problem, **kwargs):
@@ -74,9 +70,7 @@ class KRVEA(SurrogateAssistedAlgorithm):
         problem = self.problem
 
         # 1) one Kriging per objective
-        models = [deepcopy(self.surrogate_proto) for _ in range(problem.n_obj)]
-        for m, model in enumerate(models):
-            model.fit(X, F[:, m])
+        models = fit_per_objective(self.surrogate_proto, X, F)
 
         # 2) optimize the surrogate with RVEA for w_max generations (threaded seed -> reproducible)
         surr = _KrigingProblem(models, problem.xl, problem.xu)
@@ -116,5 +110,4 @@ class KRVEA(SurrogateAssistedAlgorithm):
         return Population.new(X=Xc[sel])
 
     def _set_optimum(self):
-        nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
-        self.opt = self._archive[nds]
+        self.opt = pareto_optimum(self._archive)
