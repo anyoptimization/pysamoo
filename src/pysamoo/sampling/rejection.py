@@ -6,15 +6,16 @@ from pymoo.operators.sampling.lhs import LHS
 from pymoo.util.misc import cdist
 
 
-def select_points_with_maximum_distance(X, n_select, selected=None):
+def select_points_with_maximum_distance(X, n_select, selected=None, random_state=None):
     n_points, n_dim = X.shape
 
     # calculate the distance matrix
     D = cdist(X, X)
 
-    # if no selection provided pick randomly in the beginning
+    # if no selection provided pick the first point (threading the run's RNG for reproducibility)
     if not selected:
-        selected = [np.random.randint(len(X))]
+        rng = random_state if random_state is not None else np.random
+        selected = [int(rng.integers(len(X)) if hasattr(rng, "integers") else rng.randint(len(X)))]
 
     # create variables to store what selected and what not
     not_selected = [i for i in range(n_points) if i not in selected]
@@ -47,7 +48,7 @@ class RejectionConstrainedSampling(Sampling):
         self.batch_size = batch_size
         self.func_eval_constr = func_eval_constr
 
-    def _do(self, problem, n_samples, **kwargs):
+    def _do(self, problem, n_samples, random_state=None, **kwargs):
 
         n_points = self.batch_size
         if n_points is None:
@@ -62,7 +63,7 @@ class RejectionConstrainedSampling(Sampling):
             else:
                 sampling = LHS(iterations=100)
 
-                X = sampling.do(problem, n_points).get("X")
+                X = sampling.do(problem, n_points, random_state=random_state).get("X")
 
                 CV = self.func_eval_constr(X)
                 is_feasible = CV <= 0
@@ -71,7 +72,7 @@ class RejectionConstrainedSampling(Sampling):
                 ret = np.vstack([ret, X])
 
         if len(ret) > n_samples:
-            I = select_points_with_maximum_distance(ret, n_samples)
+            I = select_points_with_maximum_distance(ret, n_samples, random_state=random_state)
             ret = ret[I]
 
         return ret

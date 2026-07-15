@@ -18,14 +18,14 @@ class EnergyConstrainedSampling(Sampling):
         self.func_eval_constr = func_eval_constr
         self.n_max_iter = n_max_iter
 
-    def _do(self, problem, n_samples, **kwargs):
+    def _do(self, problem, n_samples, random_state=None, **kwargs):
         xl, xu = problem.bounds()
         constr = self.func_eval_constr
         d = problem.n_var**2
 
-        X = RejectionConstrainedSampling(constr).do(problem, n_samples).get("X")
+        X = RejectionConstrainedSampling(constr).do(problem, n_samples, random_state=random_state).get("X")
         if len(X) < n_samples:
-            X = NichingConstrainedSampling(constr).do(problem, n_samples).get("X")
+            X = NichingConstrainedSampling(constr).do(problem, n_samples, random_state=random_state).get("X")
 
         if len(X) == 0:
             raise RuntimeError("No feasible solution could be found!")

@@ -31,12 +31,14 @@ def DEFAULT_IEQ_CONSTR_MODELS(**defaults):
     models = {}
 
     for kernel in ["cubic", "linear", "mq"]:
+        # Plog is a *target* transform for constraint violations (SACOBRA-style), so it belongs on
+        # norm_y -- keep the caller's design-space norm_X instead of overwriting it.
         for label, norm in [("default", NoNormalization()), ("plog", Plog())]:
             for normalized in [False, True]:
                 for tail in ["constant", "linear", "linear+quadratic"]:
                     params = dict(defaults)
                     params["kernel"] = kernel
-                    params["norm_X"] = norm
+                    params["norm_y"] = norm
                     params["normalized"] = normalized
                     params["tail"] = tail
 

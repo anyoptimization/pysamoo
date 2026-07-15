@@ -73,7 +73,10 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
             nadir = res.opt.get("F").max(axis=0) + 1e-16
             vals = normalize(cand.get("F"), ideal, nadir)
 
-            kmeans = KMeans(n_clusters=self.n_infills, random_state=0).fit(vals)
+            # derive the KMeans seed from the run RNG (not a fixed 0) so the clustering varies per
+            # iteration -- consistent with the inner-NSGA2 seeding above -- yet stays reproducible.
+            kmeans_seed = int(self.random_state.integers(1, 2**31 - 1))
+            kmeans = KMeans(n_clusters=self.n_infills, random_state=kmeans_seed).fit(vals)
             groups = [[] for _ in range(self.n_infills)]
             for k, i in enumerate(kmeans.labels_):
                 groups[i].append(k)

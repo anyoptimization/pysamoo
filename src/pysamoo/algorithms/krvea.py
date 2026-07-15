@@ -102,7 +102,16 @@ class KRVEA(SurrogateAssistedAlgorithm):
                 picks.append(int(members[cos[members, rv].argmax()]))
                 if len(picks) >= u:
                     break
-            sel = np.array(picks[:u], dtype=int)
+            # if fewer active vectors than the batch size, top up with the most uncertain candidates
+            # so the iteration always spends its full evaluation budget (as the paper's strategy does).
+            sel = picks[:u]
+            if len(sel) < u:
+                for i in np.argsort(-sigma):
+                    if int(i) not in sel:
+                        sel.append(int(i))
+                        if len(sel) == u:
+                            break
+            sel = np.array(sel, dtype=int)
         else:
             # convergence: the u candidates the models are least certain about
             sel = np.argsort(-sigma)[:u]
