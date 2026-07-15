@@ -11,7 +11,7 @@ Built-in strategies:
 
 Add a new strategy by registering another :class:`~pysamoo.core.target.Target`
 subclass in :data:`STRATEGIES`, or pass any factory directly to an algorithm's
-``model_selection`` argument. This is the single extension point — algorithms do
+``selection`` argument. This is the single extension point — algorithms do
 not hard-code which strategy they use.
 """
 
@@ -23,7 +23,7 @@ STRATEGIES = {
 
 
 def resolve(strategy):
-    """Resolve a ``model_selection`` value to a Target factory.
+    """Resolve a ``selection`` value to a Target factory.
 
     Args:
         strategy: Either a registered name (a key of :data:`STRATEGIES`) or a
@@ -37,4 +37,4 @@ def resolve(strategy):
         return strategy
     if strategy in STRATEGIES:
         return STRATEGIES[strategy]
-    raise ValueError(f"unknown model_selection {strategy!r}; choose from {sorted(STRATEGIES)} or pass a Target factory")
+    raise ValueError(f"unknown selection {strategy!r}; choose from {sorted(STRATEGIES)} or pass a Target factory")

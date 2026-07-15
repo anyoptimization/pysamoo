@@ -5,8 +5,6 @@ from pymoo.core.duplicate import DefaultDuplicateElimination
 from pymoo.core.population import Population
 from pymoo.optimize import minimize
 from pymoo.util.display.multi import MultiObjectiveOutput
-
-# from pymoo.util.output import MultiObjectiveOutput
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.normalization import normalize
 from pymoo.util.roulette import RouletteWheelSelection
@@ -28,11 +26,11 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
         surr_n_gen=20,
         surr_eps_elim=1e-6,
         surr_sampling="current",
-        output=MultiObjectiveOutput(),
+        output=None,
         **kwargs,
     ):
 
-        super().__init__(output=output, **kwargs)
+        super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.n_infills = n_infills
         self.surr_n_gen = surr_n_gen
         self.surr_pop_size = surr_pop_size

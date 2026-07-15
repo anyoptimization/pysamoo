@@ -127,7 +127,7 @@ class PSAF(SurrogateAssistedAlgorithm):
         # if a tournament selection should be done alpha is at least two
         if self.alpha > 1:
             # do the tournament for each alpha
-            for k in range(self.alpha - 1):
+            for _ in range(self.alpha - 1):
                 # create a second pool and actually do the tournament
                 others = self.algorithm.infill()
                 Evaluator().eval(problem, others)

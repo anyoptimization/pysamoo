@@ -29,7 +29,7 @@ class SurrogateAssistedAlgorithm(Algorithm):
         self,
         n_initial_doe=None,
         n_initial_max_doe=100,
-        sampling=LHS(),
+        sampling=None,
         nth_validate=5,
         surrogate=None,
         selection="full",
@@ -56,7 +56,7 @@ class SurrogateAssistedAlgorithm(Algorithm):
         self.selection = selection
         self.n_initial_doe = n_initial_doe
         self.n_initial_max_doe = n_initial_max_doe
-        self.initialization = Initialization(sampling)
+        self.initialization = Initialization(sampling if sampling is not None else LHS())
 
         # all solutions that have been evaluated so far
         self._archive = Population()
