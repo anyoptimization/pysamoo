@@ -6,22 +6,15 @@ from pymoo.core.meta import Meta
 
 class Surrogate:
     def __init__(self, problem, targets=None, **kwargs):
-        """
+        """Build and update surrogates for the components of a Population.
 
-        This surrogate object allows to conveniently build and update surrogates for a Population object.
-        This can be a rather complicated task because surrogates for objectives and ieq. and eq. constraints might
-        need to be build and different combinations of doing that are possible.
+        Objectives and inequality/equality constraints may each need their own model, and different model
+        combinations are possible; this object wraps that bookkeeping behind fit/validate/predict.
 
-        Parameters
-        ----------
-        problem : Problem
-            The optimization problem to access the meta data (it will never be called for an evaluation)
-
-        targets : list
-            A list of target objects describing how each of the components of a population should be modeled.
-            This also includes the type of model and other hyper-parameters. This modular definition is necessary
-            because different types of surrogate might be used for different _targets.
-
+        Args:
+            problem: The optimization problem, used only for its metadata (it is never evaluated here).
+            targets: Target objects describing how each population component is modeled (model type and
+                hyper-parameters). The modular definition allows a different surrogate per target.
         """
 
         super().__init__(**kwargs)
@@ -63,12 +56,4 @@ class ProblemFromTargets(Meta):
 
         for v in ["F", "G", "H"]:
             if np.any(np.isnan(out[v])):
-                raise Exception("Building Surrogate has failed (nan values were predict). The run has been terminated.")
-
-        out["F_estm_error"] = np.full((n, self.n_obj), np.nan, dtype=float)
-        out["G_estm_error"] = np.full((n, self.n_ieq_constr), np.nan, dtype=float)
-        out["H_estm_error"] = np.full((n, self.n_eq_constr), np.nan, dtype=float)
-
-        for target in self.targets:
-            label, k = target.label
-            out.get(label + "_estm_error")[:, k] = target.performance("mae")
+                raise RuntimeError(f"Surrogate prediction produced NaN values in '{v}'; the run was terminated.")

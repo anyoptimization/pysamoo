@@ -197,5 +197,13 @@ class GeneticAlgorithm(Optimizer):
             # let the niching GA also start from the best evaluated points
             seeds = np.vstack([np.atleast_2d(elites), seeds])
         algorithm = NicheGA(pop_size=self.pop_size, sampling=seeds)
-        res = pymoo_minimize(acq, algorithm, DefaultSingleObjectiveTermination(period=1), verbose=False)
+        # thread the run's RNG into the inner GA: without a seed pymoo falls back to an unseeded
+        # default_rng(), making the acquisition optimum -- and thus the whole run -- irreproducible.
+        res = pymoo_minimize(
+            acq,
+            algorithm,
+            DefaultSingleObjectiveTermination(period=1),
+            seed=_seed_from(random_state),
+            verbose=False,
+        )
         return res.opt.get("X")[0], float(res.opt.get("F")[0, 0])

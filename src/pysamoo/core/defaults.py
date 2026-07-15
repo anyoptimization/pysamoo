@@ -10,39 +10,8 @@ from pymoo.util.normalization import NoNormalization
 
 def DEFAULT_OBJ_MODELS(**defaults):
 
-    models = models_from_clazzes(
-        # YAGP,
-        # BOTORCH,
-        # TKGP,
-        # Kriging,
-        # GGP,
-        # LGP,
-        RBF,
-        # KNN,
-        # RBF3,
-        # PolynomialRegression,
-        # RBF2,
-        # pySOTRBF,
-        # SVR,
-        # InverseDistanceWeighting,
-        # NearestNeighbors,
-        **defaults,
-    )
-
-    # models_from_clazzes already returns {name: model_instance}
-
-    # models = {}
-
-    # for kernel in ["cubic", "linear", "mq"]:
-    #     for normalized in [False, True]:
-    #         for tail in ["constant", "linear", "linear+quadratic"]:
-    #             params = dict(defaults)
-    #             params["kernel"] = kernel
-    #             params["normalized"] = normalized
-    #             params["tail"] = tail
-    #
-    #             model = RBF(**params)
-    #             models[f"rbf-{kernel}-{tail}-{normalized}"] = model
+    # models_from_clazzes returns {name: model_instance}
+    models = models_from_clazzes(RBF, **defaults)
 
     # pydacefit expects a regression *object* (not the string "constant"/"linear"/...).
     # Passing strings silently fails the fit (caught by the benchmark's raise_exception=False),
@@ -83,15 +52,14 @@ def DEFAULT_EQ_CONSTR_MODELS(**defaults):
     for kernel in ["cubic", "linear", "mq"]:
         for normalized in [False, True]:
             for tail in ["constant", "linear", "linear+quadratic"]:
-                for optimize in [False]:
-                    params = dict(defaults)
-                    params["kernel"] = kernel
-                    params["normalized"] = normalized
-                    params["tail"] = tail
-                    params["optimize"] = optimize
+                params = dict(defaults)
+                params["kernel"] = kernel
+                params["normalized"] = normalized
+                params["tail"] = tail
+                params["optimize"] = False
 
-                    model = RBF(**params)
-                    models[f"rbf-{kernel}-{tail}-{normalized}-{optimize}"] = model
+                model = RBF(**params)
+                models[f"rbf-{kernel}-{tail}-{normalized}-False"] = model
 
     models["kriging-const"] = Kriging(regr=ConstantRegression())
     models["kriging-lin"] = Kriging(regr=LinearRegression())

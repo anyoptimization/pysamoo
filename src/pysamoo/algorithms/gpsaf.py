@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 
-import matplotlib.pyplot as plt
 import numpy as np
 from pymoo.algorithms.moo.nsga2 import RankAndCrowdingSurvival
 from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
@@ -18,8 +17,6 @@ from pymoo.util.display.output import Output
 from pymoo.util.dominator import get_relation
 from pymoo.util.misc import cdist, norm_eucl_dist
 from pymoo.util.optimum import filter_optimum
-from pymoo.visualization.fitness_landscape import FitnessLandscape
-from pymoo.visualization.video.callback_video import AnimationCallback
 
 from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.core.knockout import noisy
@@ -77,66 +74,6 @@ class GPSAFOutput(Output):
 
 
 # =========================================================================================================
-# Animation
-# =========================================================================================================
-
-
-class GPSAFAnimation(AnimationCallback):
-    def __init__(self, nth_gen=1, n_samples_for_surface=200, dpi=200, **kwargs):
-
-        super().__init__(nth_gen=nth_gen, dpi=dpi, **kwargs)
-        self.n_samples_for_surface = n_samples_for_surface
-        self.last_pop = None
-
-    def do(self, problem, algorithm):
-
-        if problem.n_var != 2 or problem.n_obj != 1:
-            raise Exception("This visualization can only be used for problems with two variables and one objective!")
-
-        # draw the problem surface
-        doe = algorithm.surrogate.targets["F"].doe
-        if doe is not None:
-            problem = algorithm.surrogate
-
-        plot = FitnessLandscape(problem, _type="contour", kwargs_contour=dict(alpha=0.5))
-        plot.do()
-
-        if doe is not None:
-            plt.scatter(doe.get("X")[:, 0], doe.get("X")[:, 1], color="black", alpha=0.3)
-
-        for k, sols in enumerate(algorithm.trace_assigned):
-            if len(sols) > 0:
-                pop = Population.create(*sols)
-                plt.scatter(pop.get("X")[:, 0], pop.get("X")[:, 1], color="blue", alpha=0.3)
-
-                x = algorithm.influenced[k].X
-                for sol in sols:
-                    plt.plot((x[0], sol.X[0]), (x[1], sol.X[1]), alpha=0.1, color="black")
-
-        plt.scatter(
-            algorithm.influenced.get("X")[:, 0],
-            algorithm.influenced.get("X")[:, 1],
-            color="red",
-            marker="*",
-            alpha=0.7,
-            label="influenced",
-        )
-
-        _biased = Population.create(*[e for e in algorithm.biased if e is not None])
-        plt.scatter(
-            _biased.get("X")[:, 0],
-            _biased.get("X")[:, 1],
-            color="orange",
-            marker="s",
-            label="Selected",
-            alpha=0.8,
-            s=100,
-        )
-
-        plt.legend()
-
-
-# =========================================================================================================
 # Algorithm
 # =========================================================================================================
 
@@ -158,10 +95,6 @@ class GPSAF(SurrogateAssistedAlgorithm):
         # the maximum number of infill solutions
         self.n_max_infills = n_max_infills
 
-        self.surr_infills = None
-        self.influenced, self.trace, self.biased = None, None, None
-        self.restart = False
-
     def _setup(self, problem, **kwargs):
         super()._setup(problem, **kwargs)
 
@@ -177,9 +110,6 @@ class GPSAF(SurrogateAssistedAlgorithm):
         self.algorithm = deepcopy(self.proto)
 
         # customize the display to show the surrogate influence
-        # self.display = GPSAFOutput(self.algorithm.display)
-        # self.display = Display(output=self.algorithm.display.output)
-        # customize the display to show the surrogate influence
         self.display = self.algorithm.display
         self.display.output = GPSAFOutput(self.algorithm.output)
         self.algorithm.display = lambda _: None
@@ -187,29 +117,16 @@ class GPSAF(SurrogateAssistedAlgorithm):
         # define the survival for the individuals to keep
         self.survival = FitnessSurvival() if problem.n_obj == 1 else RankAndCrowdingSurvival()
 
-    def _initialize_infill(self):
-        # return self.algorithm.infill()
-        return super()._initialize_infill()
-
     def _initialize_advance(self, infills=None, **kwargs):
         super()._initialize_advance(infills=infills, **kwargs)
 
         # validate and check different surrogates to find the best
         self.surrogate.validate(infills, random_state=self.random_state)
 
-        # now we perform a fake initialization of the algorithm object by providing individuals from LHS
-        # fake = self.algorithm.infill()
-        # fittest = self.survival.do(self.problem, infills, n_survive=len(fake))
-        fittest = infills
-
         # feed back the fittest individuals to the algorithm
-        self.algorithm.advance(infills=fittest)
+        self.algorithm.advance(infills=infills)
 
     def _infill(self):
-
-        # if the algorithm should do a restart - copy again the prototype
-        if self.restart:
-            self.algorithm = deepcopy(self.proto)
 
         # get the design of experiments to be used for modeling
         doe = self._doe()
@@ -236,7 +153,6 @@ class GPSAF(SurrogateAssistedAlgorithm):
             # get the trace from the beta run on the surrogate
             trace = self._infill_beta()
             trace.set("type", "trace")
-            self.trace = trace
 
             # 3) assign the found solutions to the original infill solutions
             trace_assigned = self._infill_beta_assign(influenced, trace)
@@ -263,7 +179,7 @@ class GPSAF(SurrogateAssistedAlgorithm):
                 # if the solution should be replaced
                 if self.random_state.random() <= rho:
                     # if it should be replaced find the ONE solution from the pool
-                    biased = self._infill_prob_tourn(pool, method="tournament", error=error, n_winners=1)[0]
+                    biased = self._infill_prob_tourn(pool, error=error, n_winners=1)[0]
 
                     # check the distance to existing solutions
                     closest = norm_eucl_dist(self.problem, biased.get("X"), self._archive.get("X")).min()
@@ -272,16 +188,6 @@ class GPSAF(SurrogateAssistedAlgorithm):
                     if closest > eps:
                         # now actually set the value to the infills
                         infills[i] = biased
-                        # infills[i].X = biased.X
-
-                    else:
-                        print("BIASED: TOO CLOSE (SKIP)")
-
-                closest = norm_eucl_dist(self.problem, infills[i].get("X"), self._archive.get("X")).min()
-
-                # if the solution is in fact new
-                if closest < eps:
-                    print("INFLUENCED: TOO CLOSE")
 
         # if beta is zero, then simply take the results from the alpha phase
         else:
@@ -306,12 +212,10 @@ class GPSAF(SurrogateAssistedAlgorithm):
 
         # reduce the number of infill solutions if required
         if len(influenced) > self.n_max_infills:
-            influenced = self._infill_prob_tourn(
-                influenced, method="tournament", error=error, n_winners=self.n_max_infills
-            )
+            influenced = self._infill_prob_tourn(influenced, error=error, n_winners=self.n_max_infills)
 
         # do the tournament for each alpha
-        for k in range(self.alpha - 1):
+        for _ in range(self.alpha - 1):
             # create a second pool and actually do the tournament
             others = self.algorithm.infill()
             if len(others) > len(influenced):
@@ -321,10 +225,10 @@ class GPSAF(SurrogateAssistedAlgorithm):
             Evaluator().eval(problem, others)
 
             # for each offspring see if we do the surrogate tournament
-            for k in range(len(influenced)):
+            for i in range(len(influenced)):
                 # if the competitor is not worse it will take the lead
-                if get_relation(influenced[k], others[k]) < 1:
-                    influenced[k] = others[k]
+                if get_relation(influenced[i], others[i]) < 1:
+                    influenced[i] = others[i]
 
         return influenced
 
@@ -351,11 +255,6 @@ class GPSAF(SurrogateAssistedAlgorithm):
 
         # create a copy of the algorithm object to keep the original unmodified
         algorithm = deepcopy(self.algorithm)
-        # if np.random.random() < 0.5:
-        #     algorithm = deepcopy(self.algorithm)
-        # else:
-        #     algorithm = deepcopy(self.proto)
-        #     print("PROTO")
 
         # disable the termination to have enough iterations to continue
         algorithm.termination = NoTermination()
@@ -385,115 +284,82 @@ class GPSAF(SurrogateAssistedAlgorithm):
 
         return Population.create(*trace)
 
-    def _infill_prob_tourn(self, sols, n_winners=1, method="tournament", error=None):
+    def _infill_prob_tourn(self, sols, n_winners=1, error=None):
+        # a knockout tournament with probabilistic comparisons under surrogate-prediction noise
 
-        # if the beta phase has not found any solutions close to the influenced one
-        if len(sols) == 0:
-            return None
+        # create a copy of all solutions to be considered
+        pool = list(range(len(sols)))
 
-        else:
-            if method == "best":
-                return FitnessSurvival().do(self.problem, Population.create(*sols), n_survive=n_winners)[0]
+        # until we have found a clear winner of the tournament
+        while True:
+            # always shuffle the pool to have random tournaments
+            self.random_state.shuffle(pool)
 
-            elif method == "random":
-                return self.random_state.choice(sols, size=n_winners)
+            # make sure the pool is an even number
+            if len(pool) % 2 != 0:
+                pool.append(self.random_state.choice(pool))
 
-            elif method == "tournament":
-                # create a copy of all solutions to be considered
-                pool = list(range(len(sols)))
+            # create the pairs that compete with each other
+            pairs = np.reshape(np.array(pool), (-1, 2))
 
-                # until we have found a clear winner of the tournament
-                while True:
-                    # always shuffle the pool to have random tournaments
+            # prepare the next pool already containing all the winners
+            winners = []
+
+            # create a solution pool with noise
+            sols_with_noise = noisy(sols, error, random_state=self.random_state)
+
+            for i, j in pairs:
+                # the two solutions to be compared
+                a, b = sols_with_noise[i], sols_with_noise[j]
+
+                # calc the relation in a probabilistic manner
+                rel = get_relation(a, b)
+
+                if rel == 1:
+                    winners.append(i)
+                elif rel == -1:
+                    winners.append(j)
+                else:
+                    if a.get("k") is not None and b.get("k") is not None:
+                        k = compare(
+                            i,
+                            a.get("k"),
+                            j,
+                            b.get("k"),
+                            method="larger_is_better",
+                            return_random_if_equal=True,
+                            random_state=self.random_state,
+                        )
+                    else:
+                        k = self.random_state.choice([i, j])
+
+                    winners.append(k)
+
+            if len(winners) <= n_winners:
+                if len(winners) < n_winners:
+                    H = set(winners)
+
                     self.random_state.shuffle(pool)
 
-                    # make sure the pool is an even number
-                    if len(pool) % 2 != 0:
-                        pool.append(self.random_state.choice(pool))
-
-                    # create the pairs that compete with each other
-                    pairs = np.reshape(np.array(pool), (-1, 2))
-
-                    # prepare the next pool already containing all the winners
-                    winners = []
-
-                    # create a solution pool with noise
-                    sols_with_noise = noisy(sols, error, random_state=self.random_state)
-
-                    for i, j in pairs:
-                        # the two solutions to be compared
-                        a, b = sols_with_noise[i], sols_with_noise[j]
-
-                        # calc the relation in a probabilistic manner
-                        rel = get_relation(a, b)
-
-                        if rel == 1:
-                            winners.append(i)
-                        elif rel == -1:
-                            winners.append(j)
-                        else:
-                            if a.get("k") is not None and b.get("k") is not None:
-                                k = compare(
-                                    i,
-                                    a.get("k"),
-                                    j,
-                                    b.get("k"),
-                                    method="larger_is_better",
-                                    return_random_if_equal=True,
-                                    random_state=self.random_state,
-                                )
-                            else:
-                                k = self.random_state.choice([i, j])
-
+                    for k in pool:
+                        if k not in H:
                             winners.append(k)
+                            H.add(k)
 
-                    if len(winners) <= n_winners:
-                        if len(winners) < n_winners:
-                            H = set(winners)
+                        if len(winners) == n_winners:
+                            break
 
-                            self.random_state.shuffle(pool)
+                return sols[winners]
 
-                            for k in pool:
-                                if k not in H:
-                                    winners.append(k)
-                                    H.add(k)
-
-                                if len(winners) == n_winners:
-                                    break
-
-                        return sols[winners]
-
-                    pool = winners
-
-            else:
-                raise Exception("Unknown selection.")
+            pool = winners
 
     def _advance(self, infills=None, **kwargs):
-
-        if self.restart:
-            for k in self.random_state.permutation(len(infills)):
-                opt = self.random_state.choice(self.opt)
-                if get_relation(opt, infills[k]) >= 0:
-                    infills[k] = opt
-                    break
-
-            self.restart = False
 
         # re-select the surrogate model (lazily; see nth_validate)
         self.revalidate(trn=self.doe, tst=infills)
 
         # make a step in the main algorithm with high-fidelity solutions
         self.algorithm.advance(infills=infills, **kwargs)
-
-        if not self.algorithm.has_next():
-            # self.restart = True
-            # print("RESTART")
-
-            self.restart = False
-            print("RESTART is DISABLED")
-
-        # for target in self.surrogate.targets:
-        #     print(target.label, target.best)
 
         super()._advance(infills=infills, **kwargs)
 
