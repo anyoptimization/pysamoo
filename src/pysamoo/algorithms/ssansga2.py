@@ -5,8 +5,6 @@ from pymoo.core.duplicate import DefaultDuplicateElimination
 from pymoo.core.population import Population
 from pymoo.optimize import minimize
 from pymoo.util.display.multi import MultiObjectiveOutput
-
-# from pymoo.util.output import MultiObjectiveOutput
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.normalization import normalize
 from pymoo.util.roulette import RouletteWheelSelection
@@ -28,11 +26,11 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
         surr_n_gen=20,
         surr_eps_elim=1e-6,
         surr_sampling="current",
-        output=MultiObjectiveOutput(),
+        output=None,
         **kwargs,
     ):
 
-        super().__init__(output=output, **kwargs)
+        super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.n_infills = n_infills
         self.surr_n_gen = surr_n_gen
         self.surr_pop_size = surr_pop_size
@@ -75,7 +73,10 @@ class SSANSGA2(SurrogateAssistedAlgorithm):
             nadir = res.opt.get("F").max(axis=0) + 1e-16
             vals = normalize(cand.get("F"), ideal, nadir)
 
-            kmeans = KMeans(n_clusters=self.n_infills, random_state=0).fit(vals)
+            # derive the KMeans seed from the run RNG (not a fixed 0) so the clustering varies per
+            # iteration -- consistent with the inner-NSGA2 seeding above -- yet stays reproducible.
+            kmeans_seed = int(self.random_state.integers(1, 2**31 - 1))
+            kmeans = KMeans(n_clusters=self.n_infills, random_state=kmeans_seed).fit(vals)
             groups = [[] for _ in range(self.n_infills)]
             for k, i in enumerate(kmeans.labels_):
                 groups[i].append(k)

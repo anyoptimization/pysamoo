@@ -1,17 +1,13 @@
 """MOEA/D-EGO -- decomposition-based efficient global optimization with a batch infill per iteration."""
 
-from copy import deepcopy
-
 import numpy as np
 from pymoo.core.population import Population
-from pymoo.operators.sampling.lhs import LHS
 from pymoo.util.display.multi import MultiObjectiveOutput
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.ref_dirs import get_reference_directions
-from pysurrogate.dace import Exponential
-from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.algorithms._ego import default_kriging, fit_per_objective, lhs_local_pool, pareto_optimum, predict_mu_sigma
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
 class MOEADEGO(SurrogateAssistedAlgorithm):
@@ -33,17 +29,19 @@ class MOEADEGO(SurrogateAssistedAlgorithm):
         surrogate: pysurrogate Kriging prototype per objective (default ``Kriging(Exponential())``).
     """
 
+    # manages its own per-objective Kriging models -> skip the base default-surrogate build.
+    build_default_surrogate = False
+
     def __init__(self, ref_dirs=None, n_infills=5, kappa=2.0, pool=200, surrogate=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.ref_dirs = ref_dirs
         self.n_infills = n_infills
         self.kappa = kappa
         self.pool = pool
-        self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
+        self.surrogate_proto = surrogate if surrogate is not None else default_kriging()
 
     def _setup(self, problem, **kwargs):
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+        super()._setup(problem, **kwargs)
         if self.ref_dirs is None:
             n_partitions = {2: 99, 3: 12}.get(problem.n_obj, 6)
             self.ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=n_partitions)
@@ -51,24 +49,17 @@ class MOEADEGO(SurrogateAssistedAlgorithm):
     def _infill(self):
         X, F = self._archive.get("X", "F")
         problem = self.problem
-        xl, xu = problem.xl, problem.xu
         rng = self.random_state
 
         # one Kriging per objective (fit once, reused across all subproblems)
-        models = [deepcopy(self.surrogate_proto) for _ in range(problem.n_obj)]
-        for m, model in enumerate(models):
-            model.fit(X, F[:, m])
+        models = fit_per_objective(self.surrogate_proto, X, F)
 
         # candidate pool: LHS + local perturbations of the current non-dominated designs
         nds = NonDominatedSorting().do(F, only_non_dominated_front=True)
-        cand = LHS().do(problem, self.pool, random_state=rng).get("X")
-        idx = rng.integers(len(nds), size=self.pool)
-        local = np.clip(X[nds][idx] + 0.05 * (xu - xl) * rng.standard_normal((self.pool, problem.n_var)), xl, xu)
-        cand = np.vstack([cand, local])
+        cand = lhs_local_pool(problem, X[nds], self.pool, rng)
 
         # optimistic per-objective prediction (lower-confidence bound)
-        mu = np.column_stack([model.predict(cand).y[:, 0] for model in models])
-        sigma = np.column_stack([model.predict(cand, var=True).sigma[:, 0] for model in models])
+        mu, sigma = predict_mu_sigma(models, cand)
         lcb = mu - self.kappa * sigma
         z = lcb.min(axis=0)  # ideal-point estimate on the optimistic prediction
 
@@ -84,5 +75,4 @@ class MOEADEGO(SurrogateAssistedAlgorithm):
         return Population.new(X=cand[chosen])
 
     def _set_optimum(self):
-        nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
-        self.opt = self._archive[nds]
+        self.opt = pareto_optimum(self._archive)

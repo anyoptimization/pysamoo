@@ -1,19 +1,15 @@
 """K-RVEA -- Kriging-assisted reference-vector guided EA for expensive many-objective optimization."""
 
-from copy import deepcopy
-
 import numpy as np
 from pymoo.algorithms.moo.rvea import RVEA
 from pymoo.core.population import Population
 from pymoo.core.problem import Problem
 from pymoo.optimize import minimize as pymoo_minimize
 from pymoo.util.display.multi import MultiObjectiveOutput
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.ref_dirs import get_reference_directions
-from pysurrogate.dace import Exponential
-from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.algorithms._ego import default_kriging, fit_per_objective, pareto_optimum
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
 class _KrigingProblem(Problem):
@@ -51,20 +47,20 @@ class KRVEA(SurrogateAssistedAlgorithm):
         surrogate: pysurrogate Kriging prototype per objective (default ``Kriging(Exponential())``).
     """
 
+    # K-RVEA manages its own per-objective Kriging models -> skip the base build.
+    build_default_surrogate = False
+
     def __init__(self, ref_dirs=None, n_infills=5, w_max=20, delta=0.05, surrogate=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.ref_dirs = ref_dirs
         self.n_infills = n_infills
         self.w_max = w_max
         self.delta = delta
-        self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
+        self.surrogate_proto = surrogate if surrogate is not None else default_kriging()
         self._active_prev = None
 
     def _setup(self, problem, **kwargs):
-        # K-RVEA manages its own per-objective Kriging models, so -- like the other EGO-style
-        # algorithms here -- it skips the base class's single shared surrogate build.
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+        super()._setup(problem, **kwargs)
         if self.ref_dirs is None:
             n_partitions = {2: 99, 3: 12}.get(problem.n_obj, 6)
             self.ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=n_partitions)
@@ -74,9 +70,7 @@ class KRVEA(SurrogateAssistedAlgorithm):
         problem = self.problem
 
         # 1) one Kriging per objective
-        models = [deepcopy(self.surrogate_proto) for _ in range(problem.n_obj)]
-        for m, model in enumerate(models):
-            model.fit(X, F[:, m])
+        models = fit_per_objective(self.surrogate_proto, X, F)
 
         # 2) optimize the surrogate with RVEA for w_max generations (threaded seed -> reproducible)
         surr = _KrigingProblem(models, problem.xl, problem.xu)
@@ -108,7 +102,16 @@ class KRVEA(SurrogateAssistedAlgorithm):
                 picks.append(int(members[cos[members, rv].argmax()]))
                 if len(picks) >= u:
                     break
-            sel = np.array(picks[:u], dtype=int)
+            # if fewer active vectors than the batch size, top up with the most uncertain candidates
+            # so the iteration always spends its full evaluation budget (as the paper's strategy does).
+            sel = picks[:u]
+            if len(sel) < u:
+                for i in np.argsort(-sigma):
+                    if int(i) not in sel:
+                        sel.append(int(i))
+                        if len(sel) == u:
+                            break
+            sel = np.array(sel, dtype=int)
         else:
             # convergence: the u candidates the models are least certain about
             sel = np.argsort(-sigma)[:u]
@@ -116,5 +119,4 @@ class KRVEA(SurrogateAssistedAlgorithm):
         return Population.new(X=Xc[sel])
 
     def _set_optimum(self):
-        nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
-        self.opt = self._archive[nds]
+        self.opt = pareto_optimum(self._archive)

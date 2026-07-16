@@ -4,7 +4,6 @@ from copy import deepcopy
 
 from ezmodel.core.factory import models_from_clazzes
 from ezmodel.models.knn import KNN
-from ezmodel.models.kriging import Kriging
 from ezmodel.models.rbf import RBF
 from pymoo.algorithms.moo.nsga2 import RankAndCrowdingSurvival
 from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
@@ -55,14 +54,14 @@ class PSAFOutput(SingleObjectiveOutput):
 
 
 class PSAF(SurrogateAssistedAlgorithm):
-    def __init__(self, algorithm, alpha=5, beta=30, rho=None, rho_max=0.7, eps=0.005, **kwargs):
+    def __init__(self, algorithm, alpha=5, beta=30, rho=None, rho_min=0.7, eps=0.005, **kwargs):
         SurrogateAssistedAlgorithm.__init__(self, **kwargs)
         self.algorithm = deepcopy(algorithm)
         self.alpha = alpha
         self.beta = beta
         self.eps = eps
         self.rho = rho
-        self.rho_max = rho_max
+        self.rho_min = rho_min
         self.bias = rho
         self.r2 = None
 
@@ -72,6 +71,9 @@ class PSAF(SurrogateAssistedAlgorithm):
         )
 
         super()._setup(problem, **kwargs)
+        # thread the run's seed into the inner algorithm so a seed passed via the constructor (not
+        # only via minimize(seed=)) is honoured -- matching GPSAF and keeping the inner GA reproducible.
+        kwargs["seed"] = self.seed
         self.algorithm.setup(problem, **kwargs)
 
         # customize the display to show the surrogate influence
@@ -82,8 +84,12 @@ class PSAF(SurrogateAssistedAlgorithm):
         xl, xu = problem.bounds()
         defaults = dict(norm_X=ZeroToOneNormalization(xl, xu))
 
+        # PSAF's model pool is the RBF family plus a KNN baseline. Two Kriging variants used to be
+        # added here with a string regr ("constant"/"linear"), which pydacefit silently failed to fit
+        # (dropped under the benchmark's raise_exception=False) -- so PSAF has always run RBF+KNN.
+        # Re-enabling Kriging with proper regression objects was measured to *regress* PSAF on the
+        # benchmark problems, so the pool intentionally stays RBF + baseline.
         models = models_from_clazzes(RBF, **defaults)
-        models = {**models, **{"krg-cont": Kriging(regr="constant"), "krg-lin": Kriging(regr="linear")}}
 
         if "baseline" not in models:
             models["baseline"] = KNN(problem.n_var + 1)
@@ -116,7 +122,12 @@ class PSAF(SurrogateAssistedAlgorithm):
         # set the bias the surrogate is supposed to have - only if greater than zero we do the second phase
         target = surrogate.targets[0]
         r2 = 1 - (target.performance("mse") / target.performance("mse", model="baseline"))
-        bias = max(self.rho_max, r2) if self.rho is None else self.rho
+        # rho_min is a *floor* on the replacement probability: PSAF exploits the surrogate at a base
+        # rate rho_min and raises it toward 1 only when the surrogate is clearly better than the KNN
+        # baseline (r2 > rho_min). Empirically this floor is what makes PSAF converge far past the
+        # bare algorithm -- lowering the bias when the surrogate looks weak makes it no better than
+        # the baseline. (The name is rho_min, not rho_max, to reflect that it is the floor.)
+        bias = max(self.rho_min, r2) if self.rho is None else self.rho
 
         # calculate the infill solutions as the algorithms usually would
         off = algorithm.infill()
@@ -127,7 +138,7 @@ class PSAF(SurrogateAssistedAlgorithm):
         # if a tournament selection should be done alpha is at least two
         if self.alpha > 1:
             # do the tournament for each alpha
-            for k in range(self.alpha - 1):
+            for _ in range(self.alpha - 1):
                 # create a second pool and actually do the tournament
                 others = self.algorithm.infill()
                 Evaluator().eval(problem, others)

@@ -30,8 +30,6 @@ def kendall_tau(y_true, y_hat, trn_y=None, **kwargs):
         np.logical_and(a[i] < a[j], b[i] > b[j]), np.logical_and(a[i] > a[j], b[i] < b[j])
     ).sum()
 
-    # ndisordered = ndisordered / (n * (n - 1))
-
     return ndisordered
 
 

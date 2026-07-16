@@ -2,13 +2,13 @@
 
 from copy import deepcopy
 
-from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
 from pymoo.core.population import Population
 from pymoo.util.display.single import SingleObjectiveOutput
 from pysurrogate.dace import Exponential
 from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.algorithms._ego import best_optimum
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.experimental.acquisition import LogEI
 from pysamoo.experimental.infill import GlobalEI
 from pysamoo.experimental.optimizer import GeneticAlgorithm
@@ -41,6 +41,9 @@ class SAASBO(SurrogateAssistedAlgorithm):
         acq_func: acquisition function (default ``LogEI``).
     """
 
+    # manages its own sparse-ARD Kriging model -> skip the base default-surrogate build.
+    build_default_surrogate = False
+
     def __init__(self, theta_prior=(0.0, 0.01), surrogate=None, infill=None, acq_func=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else SingleObjectiveOutput(), **kwargs)
         self.theta_prior = theta_prior
@@ -51,10 +54,6 @@ class SAASBO(SurrogateAssistedAlgorithm):
         self.infill_strategy = infill if infill is not None else GlobalEI(GeneticAlgorithm())
         self.acq_func = acq_func if acq_func is not None else LogEI()
         self._model = None
-
-    def _setup(self, problem, **kwargs):
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
 
     def _infill(self):
         X, F = self._archive.get("X", "F")
@@ -70,4 +69,4 @@ class SAASBO(SurrogateAssistedAlgorithm):
         return Population.new(X=x_best[None, :])
 
     def _set_optimum(self):
-        self.opt = FitnessSurvival().do(self.problem, self._archive, n_survive=1)
+        self.opt = best_optimum(self.problem, self._archive)

@@ -2,7 +2,6 @@
 
 from collections.abc import Callable
 
-import autograd.numpy as anp
 import numpy as np
 from pymoo.core.individual import Individual
 from pymoo.core.population import Population
@@ -13,40 +12,26 @@ class TotalConstraintViolation:
     def __init__(
         self,
         ieq_eps: float = 0.0,
-        ieq_pow: float = None,
-        ieq_scale: np.ndarray = None,
+        ieq_pow: float | None = None,
+        ieq_scale: np.ndarray | None = None,
         eq_eps: float = 1e-4,
-        eq_pow: float = None,
-        eq_scale: np.ndarray = None,
+        eq_pow: float | None = None,
+        eq_scale: np.ndarray | None = None,
         aggr_func: Callable = np.mean,
         feas_eps: float = 0.0,
     ):
-        """
+        """Aggregate inequality/equality constraints into a single total-constraint-violation value.
 
-        Parameters
-        ----------
-        ieq_pow : float
-            To what power the each inequality constraint violation should be taken
-
-        ieq_eps : float
-            The allowed violation of an inequality constraint (usually 0, but might be relaxed during a run)
-
-        ieq_scale : np.array
-            The scaling for the inequality constraints to consider. The cvs will be divided by this scaling.
-            (useful if constraints have entirely different scales which might cause a biased aggregation)
-
-        eq_pow : float
-            To what power the each equality constraint violation should be taken
-
-        eq_eps : float
-            The permitted violation of an equality constraint - small eps value defined in config
-
-        eq_scale : np.array
-            Same as `ieq_scale` but for equality constraints.
-
-        feas_eps : float
-            The eps amount for a solution to count as feasible or infeasible.
-
+        Args:
+            ieq_eps: Allowed violation of an inequality constraint (usually 0, may be relaxed during a run).
+            ieq_pow: Power each inequality-constraint violation is raised to.
+            ieq_scale: Per-constraint scaling; the violations are divided by it (useful for differently
+                scaled constraints that would otherwise bias the aggregation).
+            eq_eps: Permitted violation of an equality constraint (a small epsilon).
+            eq_pow: Power each equality-constraint violation is raised to.
+            eq_scale: Same as ``ieq_scale`` but for equality constraints.
+            aggr_func: Aggregation applied across constraints to obtain the total violation.
+            feas_eps: The violation threshold below which a solution counts as feasible.
         """
 
         super().__init__()
@@ -83,10 +68,10 @@ class TotalConstraintViolation:
         if len(C) == 0:
             return None
 
-        C = anp.column_stack(C)
+        stacked = np.column_stack(C)
 
         # calculate the total constraint violation
-        tcv = self.aggr_func(C, axis=1)
+        tcv = self.aggr_func(stacked, axis=1)
 
         if return_feas:
             return tcv, tcv <= self.feas_eps
@@ -97,7 +82,7 @@ class TotalConstraintViolation:
 
         # this way the total constraint violation calculation also works for an individual
         if isinstance(pop, Individual):
-            pop = Population().create(pop)
+            pop = Population.create(pop)
 
         # do the actual calculations to get the total constraint violations
         G, H = pop.get("G", "H")
@@ -117,7 +102,7 @@ class TotalConstraintViolation:
 
 def g_to_cv(g, eps, beta=None, scale=None):
     # subtract eps to allow some violation and then zero out all values less than zero
-    g = anp.maximum(0.0, g - eps)
+    g = np.maximum(0.0, g - eps)
 
     # apply scaling if necessary
     if scale is not None:
@@ -134,12 +119,3 @@ def g_to_cv(g, eps, beta=None, scale=None):
         g = g**beta
 
     return g
-
-
-def estm_scale(v, eps=0.0, func=np.mean):
-    v = v[v > eps]
-
-    if len(v) == 0:
-        return 1.0
-    else:
-        return func(v)

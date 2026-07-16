@@ -1,17 +1,18 @@
 """EHVI -- Expected Hypervolume Improvement Bayesian optimization for multi-objective problems."""
 
-from copy import deepcopy
-
 import numpy as np
 from pymoo.core.population import Population
-from pymoo.indicators.hv import HV
-from pymoo.operators.sampling.lhs import LHS
 from pymoo.util.display.multi import MultiObjectiveOutput
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
-from pysurrogate.dace import Exponential
-from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.algorithms._ego import (
+    default_kriging,
+    fit_per_objective,
+    front_and_hv,
+    lhs_local_pool,
+    pareto_optimum,
+    predict_mu_sigma,
+)
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 
 
 class EHVI(SurrogateAssistedAlgorithm):
@@ -35,34 +36,25 @@ class EHVI(SurrogateAssistedAlgorithm):
         surrogate: pysurrogate Kriging prototype per objective (default ``Kriging(Exponential())``).
     """
 
+    # manages its own per-objective Kriging models -> skip the base default-surrogate build.
+    build_default_surrogate = False
+
     def __init__(self, pool=200, n_screen=20, n_samples=32, surrogate=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.pool = pool
         self.n_screen = n_screen
         self.n_samples = n_samples
-        self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
-
-    def _setup(self, problem, **kwargs):
-        # manages its own per-objective Kriging models -> skip the base single-surrogate build.
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+        self.surrogate_proto = surrogate if surrogate is not None else default_kriging()
 
     def _infill(self):
         X, F = self._archive.get("X", "F")
         problem = self.problem
-        n_obj = problem.n_obj
 
         # one Kriging per objective
-        models = [deepcopy(self.surrogate_proto) for _ in range(n_obj)]
-        for m, model in enumerate(models):
-            model.fit(X, F[:, m])
+        models = fit_per_objective(self.surrogate_proto, X, F)
 
         # current non-dominated front and a reference point (nadir + 10% margin) for the hypervolume
-        nds = NonDominatedSorting().do(F, only_non_dominated_front=True)
-        front = F[nds]
-        z_min, z_max = F.min(axis=0), F.max(axis=0)
-        ref = z_max + 0.1 * np.maximum(z_max - z_min, 1e-9)
-        hv = HV(ref_point=ref)
+        nds, front, hv = front_and_hv(F)
         hv0 = float(hv(front))
 
         def hvi(point):
@@ -71,16 +63,8 @@ class EHVI(SurrogateAssistedAlgorithm):
         # candidate pool: a space-filling LHS *plus* local perturbations of the current
         # non-dominated designs. In higher dimensions a pure LHS pool is too sparse to locate the
         # acquisition optimum, so seeding the neighbourhood of the front is what makes EHVI competitive.
-        xl, xu = problem.xl, problem.xu
-        cand = LHS().do(problem, self.pool, random_state=self.random_state).get("X")
-        elite_X = X[nds]
-        idx = self.random_state.integers(len(elite_X), size=self.pool)
-        local = np.clip(
-            elite_X[idx] + 0.05 * (xu - xl) * self.random_state.standard_normal((self.pool, problem.n_var)), xl, xu
-        )
-        cand = np.vstack([cand, local])
-        mu = np.column_stack([model.predict(cand).y[:, 0] for model in models])
-        sigma = np.column_stack([model.predict(cand, var=True).sigma[:, 0] for model in models])
+        cand = lhs_local_pool(problem, X[nds], self.pool, self.random_state)
+        mu, sigma = predict_mu_sigma(models, cand)
 
         # cheap screen: the optimistic point mu - sigma (minimization) rewards both a good mean and
         # high uncertainty, so its HVI is a fast proxy for where EHVI is worth estimating.
@@ -119,5 +103,4 @@ class EHVI(SurrogateAssistedAlgorithm):
         return float(np.mean([max(0.0, float(hv(np.vstack([front, s]))) - hv0) for s in samples]))
 
     def _set_optimum(self):
-        nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
-        self.opt = self._archive[nds]
+        self.opt = pareto_optimum(self._archive)

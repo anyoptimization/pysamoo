@@ -11,46 +11,56 @@ from pysamoo.core.selection import resolve as resolve_selection
 from pysamoo.core.surrogate import Surrogate
 
 
-def default_n_doe(n, max=float("inf")):
-    return min(2 * n + 1, max)
+def default_n_doe(n_var, cap=float("inf")):
+    """Default initial design-of-experiments size for ``n_var`` variables, optionally capped.
+
+    Args:
+        n_var: Number of decision variables.
+        cap: Upper bound on the returned size (defaults to no cap).
+
+    Returns:
+        ``min(2 * n_var + 1, cap)``.
+    """
+    return min(2 * n_var + 1, cap)
 
 
 class SurrogateAssistedAlgorithm(Algorithm):
+    # whether _setup builds the default multi-target model pool; the EGO-style algorithms that
+    # manage their own per-objective models set this to False (and skip the expensive build).
+    build_default_surrogate = True
+
     def __init__(
         self,
         n_initial_doe=None,
         n_initial_max_doe=100,
-        sampling=LHS(),
+        sampling=None,
         nth_validate=5,
         surrogate=None,
         selection="full",
         **kwargs,
     ):
-        """
-        Parameters
-        ----------
-        n_initial_doe : int
-            Number of initial design of experiments. If `None`, the default is 11*n - 1. (but at most `n_max_doe`)
+        """Base surrogate-assisted algorithm.
 
-        n_max_doe : int
-            If `n_initial_doe` is set to `None`, the maximum number of initial designs.
-
-        sampling : class
-            The initial sampling being used for the designs of experiment.
-
-        selection : str or callable
-            Pluggable model-selection strategy for the default surrogate — a name
-            registered in :data:`pysamoo.core.selection.STRATEGIES` or a Target
-            factory ``(label, models) -> Target``. ``"full"`` cross-validates the
-            whole pool every iteration. Ignored if ``surrogate`` is given.
-
+        Args:
+            n_initial_doe: Number of initial design-of-experiments points. If ``None``, defaults to
+                ``2 * n_var + 1`` (capped at ``n_initial_max_doe``).
+            n_initial_max_doe: Upper bound on the initial DOE size when ``n_initial_doe`` is ``None``.
+            sampling: The sampling operator used to generate the initial designs.
+            nth_validate: Re-run full model selection only every nth call to :meth:`revalidate`
+                (the model is still refit every iteration in between).
+            surrogate: A pre-built :class:`~pysamoo.core.surrogate.Surrogate`. If ``None``, a default
+                model pool is constructed and ``selection`` chooses among it.
+            selection: Pluggable model-selection strategy for the default surrogate — a name registered
+                in :data:`pysamoo.core.selection.STRATEGIES` or a Target factory
+                ``(label, models) -> Target``. ``"full"`` cross-validates the whole pool every
+                iteration. Ignored if ``surrogate`` is given.
         """
         super().__init__(**kwargs)
 
         self.selection = selection
         self.n_initial_doe = n_initial_doe
         self.n_initial_max_doe = n_initial_max_doe
-        self.initialization = Initialization(sampling)
+        self.initialization = Initialization(sampling if sampling is not None else LHS())
 
         # all solutions that have been evaluated so far
         self._archive = Population()
@@ -61,44 +71,53 @@ class SurrogateAssistedAlgorithm(Algorithm):
         # the model/surrogate to be used during optimization
         self.surrogate = surrogate
 
-        # a solution set which has not been evaluated yet on the models
-        self.validation = Population()
-
         # each nth iteration when all surrogate models should be revalidated
         self.nth_validate = nth_validate
 
+        # counts calls to revalidate() so re-selection can run only every nth_validate-th time
+        self._revalidate_count = 0
+
     def _setup(self, problem, **kwargs):
-
-        # initialize the default surrogate for the algorithm
-        if self.surrogate is None:
-            # the design space boundaries for the problem - used for normalization in the surrogate
-            xl, xu = problem.bounds()
-            defaults = dict(norm_X=MyNormalization(xl, xu))
-
-            # the model-selection strategy is pluggable: resolve it to a target
-            # factory (label, models) -> Target. "full" or any factory.
-            make_target = resolve_selection(self.selection)
-
-            targets = []
-
-            models = DEFAULT_OBJ_MODELS(**defaults)
-            for m in range(problem.n_obj):
-                targets.append(make_target(("F", m), models))
-
-            models = DEFAULT_IEQ_CONSTR_MODELS(**defaults)
-            for g in range(problem.n_ieq_constr):
-                targets.append(make_target(("G", g), models))
-
-            models = DEFAULT_EQ_CONSTR_MODELS(**defaults)
-            for h in range(problem.n_eq_constr):
-                targets.append(make_target(("H", h), models))
-
-            # create the surrogate model
-            self.surrogate = Surrogate(problem, targets)
-
         # set the number of DOE points initially
         if self.n_initial_doe is None:
             self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+
+        # build the default multi-target surrogate unless the algorithm manages its own models
+        if self.build_default_surrogate and self.surrogate is None:
+            self.surrogate = self._build_default_surrogate(problem)
+
+    def _build_default_surrogate(self, problem):
+        """Construct the default multi-target surrogate (one model pool per objective/constraint).
+
+        Args:
+            problem: The problem whose objective/constraint counts and bounds shape the surrogate.
+
+        Returns:
+            A :class:`~pysamoo.core.surrogate.Surrogate` with a selection-driven target per output.
+        """
+        # the design space boundaries for the problem - used for normalization in the surrogate
+        xl, xu = problem.bounds()
+        defaults = dict(norm_X=MyNormalization(xl, xu))
+
+        # the model-selection strategy is pluggable: resolve it to a target
+        # factory (label, models) -> Target. "full" or any factory.
+        make_target = resolve_selection(self.selection)
+
+        targets = []
+
+        models = DEFAULT_OBJ_MODELS(**defaults)
+        for m in range(problem.n_obj):
+            targets.append(make_target(("F", m), models))
+
+        models = DEFAULT_IEQ_CONSTR_MODELS(**defaults)
+        for g in range(problem.n_ieq_constr):
+            targets.append(make_target(("G", g), models))
+
+        models = DEFAULT_EQ_CONSTR_MODELS(**defaults)
+        for h in range(problem.n_eq_constr):
+            targets.append(make_target(("H", h), models))
+
+        return Surrogate(problem, targets)
 
     def revalidate(self, *args, **kwargs):
         """Re-run model selection lazily.
@@ -112,7 +131,7 @@ class SurrogateAssistedAlgorithm(Algorithm):
         every iteration). ``nth_validate=1`` re-selects every iteration (original
         behaviour); ``None``/``0`` is treated the same.
         """
-        self._revalidate_count = getattr(self, "_revalidate_count", 0) + 1
+        self._revalidate_count += 1
         # validate on the first call and then every nth_validate-th call (so a
         # caller whose first selection happens here — e.g. BO — is covered).
         if not self.nth_validate or (self._revalidate_count - 1) % self.nth_validate == 0:
@@ -136,6 +155,12 @@ class SurrogateAssistedAlgorithm(Algorithm):
 
 
 class MyNormalization(ZeroToOneNormalization):
+    """Map the design space to ``[-100, 100]`` (symmetric, wider range than [0, 1]).
+
+    Surrogate kernels (RBF/Kriging) are better conditioned on this symmetric, wider range than on the
+    plain unit cube, so the default model pool normalizes design inputs through this before fitting.
+    """
+
     def forward(self, X):
         return super().forward(X) * 200 - 100
 

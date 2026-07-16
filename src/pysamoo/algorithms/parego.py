@@ -5,12 +5,10 @@ from copy import deepcopy
 import numpy as np
 from pymoo.core.population import Population
 from pymoo.util.display.multi import MultiObjectiveOutput
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.ref_dirs import get_reference_directions
-from pysurrogate.dace import Exponential
-from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.algorithms._ego import default_kriging, pareto_optimum
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.experimental.acquisition import LogEI
 from pysamoo.experimental.infill import GlobalEI
 from pysamoo.experimental.optimizer import VectorizedGradientDescent
@@ -39,20 +37,20 @@ class ParEGO(SurrogateAssistedAlgorithm):
         acq_func: The acquisition function on the scalar surrogate (default ``LogEI``).
     """
 
+    # ParEGO manages its own single-objective (scalar) surrogate -> skip the base build.
+    build_default_surrogate = False
+
     def __init__(self, rho=0.05, surrogate=None, infill=None, acq_func=None, output=None, **kwargs):
         super().__init__(output=output if output is not None else MultiObjectiveOutput(), **kwargs)
         self.rho = rho
-        self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
+        self.surrogate_proto = surrogate if surrogate is not None else default_kriging()
         self.infill_strategy = infill if infill is not None else GlobalEI(VectorizedGradientDescent())
         self.acq_func = acq_func if acq_func is not None else LogEI()
         self.weights = None
         self._model = None
 
     def _setup(self, problem, **kwargs):
-        # ParEGO manages its own single-objective (scalar) surrogate, so -- like the experimental BO
-        # -- it deliberately skips the base class's multi-target surrogate build.
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+        super()._setup(problem, **kwargs)
         # a fixed Das-Dennis weight set; one is drawn at random per infill. The partition count is
         # picked so the set is neither tiny nor huge for the common 2-/3-objective cases.
         n_partitions = {2: 100, 3: 15}.get(problem.n_obj, 8)
@@ -81,5 +79,4 @@ class ParEGO(SurrogateAssistedAlgorithm):
         return Population.new(X=x_best[None, :])
 
     def _set_optimum(self):
-        nds = NonDominatedSorting().do(self._archive.get("F"), only_non_dominated_front=True)
-        self.opt = self._archive[nds]
+        self.opt = pareto_optimum(self._archive)

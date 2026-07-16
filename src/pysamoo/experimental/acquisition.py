@@ -1,3 +1,5 @@
+"""Acquisition functions (EI, LogEI, POI, UCB) and their optimization-problem wrappers."""
+
 import numpy as np
 from pymoo.core.meta import Meta
 from pysurrogate.core.optimizer import Evaluation, Problem

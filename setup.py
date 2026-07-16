@@ -14,16 +14,16 @@ __version__ = __version__["__version__"]
 # ---------------------------------------------------------------------------------------------------------
 
 
-__name__ = "pysamoo"
-__author__ = "Julian Blank"
-__url__ = "https://anyoptimization.com/projects/pysamoo/"
+name = "pysamoo"
+author = "Julian Blank"
+url = "https://anyoptimization.com/projects/pysamoo/"
 
 data = dict(
-    name=__name__,
+    name=name,
     version=__version__,
-    author=__author__,
-    url=__url__,
-    python_requires='>=3.7',
+    author=author,
+    url=url,
+    python_requires='>=3.10',
     author_email="blankjul@msu.edu",
     description="Surrogate-Assisted Multi-objective Optimization",
     license='PolyForm Noncommercial License 1.0.0',
@@ -40,9 +40,6 @@ data = dict(
         'License :: Other/Proprietary License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Topic :: Scientific/Engineering',

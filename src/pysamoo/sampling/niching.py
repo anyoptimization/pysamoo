@@ -9,11 +9,11 @@ from pymoo.util.reference_direction import select_points_with_maximum_distance
 
 
 class NichingConstrainedSampling(Sampling):
-    def __init__(self, func_eval_constr, sampling=LHS(), initial_eps=0.25):
+    def __init__(self, func_eval_constr, sampling=None, initial_eps=0.25):
         super().__init__()
         self.func_eval_constr = func_eval_constr
         self.initial_eps = initial_eps
-        self.sampling = sampling
+        self.sampling = sampling if sampling is not None else LHS()
 
     def _do(self, problem, n_samples, **kwargs):
         constr = self.func_eval_constr
@@ -22,7 +22,7 @@ class NichingConstrainedSampling(Sampling):
             def __init__(self, problem):
                 super().__init__(problem)
                 self.n_obj = 1
-                self.n_constr = 1
+                self.n_ieq_constr = 1
 
             def _evaluate(self, x, out, *args, **kwargs):
                 cv = constr(x)
@@ -34,14 +34,12 @@ class NichingConstrainedSampling(Sampling):
         eps = self.initial_eps
 
         while True:
-            algorithm = NicheGA(pop_size=n_samples, samping=self.sampling, norm_niche_size=eps, norm_by_dim=True)
+            algorithm = NicheGA(pop_size=n_samples, sampling=self.sampling, norm_niche_size=eps, norm_by_dim=True)
 
             res = minimize(problem, algorithm, ("n_gen", 200), return_least_infeasible=True)
             opt = res.opt
 
             X = opt.get("X")[opt.get("CV")[:, 0] <= 0]
-
-            print(eps, len(X))
 
             if len(X) >= n_samples:
                 break

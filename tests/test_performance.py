@@ -43,7 +43,7 @@ from pysamoo.algorithms.turbo import TuRBO
 pytestmark = pytest.mark.slow
 
 SEED = 1
-_PSAF_KW = dict(n_initial_doe=30, alpha=10, beta=30, max_rho=0.7, n_max_infills=10, n_max_doe=500)
+_PSAF_KW = dict(n_initial_doe=30, alpha=10, beta=30, rho_min=0.7)
 _GPSAF_KW = dict(n_initial_doe=30, alpha=10, beta=50, n_max_doe=100)
 
 

@@ -12,31 +12,17 @@ from pysamoo.core.indicator import INDICATORS
 
 
 class Target:
-    def __init__(self, label, models, n_folds=5, n_max_performances=5, n_max_benchmarks=0, indicators=INDICATORS):
-        """
+    def __init__(self, label, models, n_folds=5, n_max_performances=5, indicators=INDICATORS):
+        """Track a pool of candidate models for one problem output and select the best.
 
-        Parameters
-        ----------
-        label : tuple
-            This describes the type and what role it plays in the problem later on. For instance, if this target
-            models the first constraint ('G', 0) would be the corresponding type.
-
-        models : list
-            A list of all models which are kept track of for this target.
-
-        n_folds : int
-            The number of folds if cross-validation is applied (happens only the first time)
-
-        n_max_performances : int
-            The number of maximum last performances to make a decision
-
-        n_max_benchmarks : int
-            The maximum number of benchmarks (only to review later)
-
-        indicators : list
-            A list of tuples (name, sign, func) defining what indicators should be calculated after
-            each of the benchmarks.
-
+        Args:
+            label: A ``(type, index)`` tuple describing what this target models and its role in the
+                problem — e.g. ``('G', 0)`` for the first inequality constraint.
+            models: Mapping of model name to model object kept as candidates for this target.
+            n_folds: Number of folds used for cross-validation (only on the first validation).
+            n_max_performances: How many recent performances to retain per model for the decision.
+            indicators: Mapping of indicator name to ``{sign, func}`` describing the accuracy metrics
+                computed after each benchmark.
         """
 
         self.label = label
@@ -46,16 +32,10 @@ class Target:
         # the indicators to be calculated for this target
         self.indicators = indicators
 
-        # this is the storage for the most recent benchmarks - full experiment
-        self.benchmarks = SlidingWindow(size=n_max_benchmarks)
-
         # this keeps track of the past performances - each model gets one
         self.performances = {}
         for key in models.keys():
             self.performances[key] = SlidingWindow(size=n_max_performances)
-
-        # the current name of the model which is used
-        self.model = None
 
         # the actual model fitting the data points provided
         self.obj = None
@@ -91,7 +71,6 @@ class Target:
         # do the benchmark for the specific target given the partitions
         obj = Benchmark(self.models, raise_exception=False).do(X, y, partitions=partitions)
         benchmark = obj.results(only_successful=False, as_list=False, include_metadata=True)
-        self.benchmarks.append(benchmark)
 
         for model in self.models.keys():
             results = benchmark["results"][model]
@@ -105,7 +84,7 @@ class Target:
         if find_best:
             self.best = self.find_best(**kwargs)
 
-    def find_best(self, indicator=["kendall_tau", "mae"], exclude=[]):
+    def find_best(self, indicator=("kendall_tau", "mae"), exclude=()):
 
         models = [model for model in self.models.keys() if model not in exclude]
         perf = self.performances
@@ -116,7 +95,7 @@ class Target:
         assert len(models) > 0, "Fitting each of the models has failed at least once in the benchmark."
 
         for entry in indicator:
-            # get the performances from the the n_max_performance iterations
+            # get the performances from the n_max_performance iterations
             v = np.array([self.performance(entry, model=model) for model in models])
 
             # multiply by the sign to consider minimization and maximization
@@ -143,7 +122,6 @@ class Target:
         X, y = sols.get("X"), self._get_y(sols)
         obj.fit(X, y)
 
-        self.model = self.best
         self.obj = obj
 
     def performance(self, indicator, model=None, func=np.mean):
@@ -185,20 +163,16 @@ class Target:
             return ret
 
     def _get_y(self, sols):
-        """
-        Parameters
-        ----------
-        sols : Population
-            A set of solutions.
+        """Extract the values this target models from a set of solutions.
 
-        Returns
-        -------
-        Y : np.array
-            The Y values to be modeled by the surrogate
+        Args:
+            sols: A population of solutions.
 
+        Returns:
+            The 1-D array of values (for this target's output column) to be modeled by the surrogate.
         """
         key, index = self.label
         return sols.get(key)[:, index]
 
     def __repr__(self) -> str:
-        return f"({self.label[0]}, {self.label[1]}) : {super(Target, self).__repr__()}"
+        return f"({self.label[0]}, {self.label[1]}) : {super().__repr__()}"

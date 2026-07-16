@@ -37,7 +37,13 @@ project = Project(
         tests_dir='tests',
         classname_prefix="tests.",
         integration_files=[],
-        markers={"fast": "not slow and not integration", "default": "not slow", "all": ""},
+        # golden is its own gate (`pyclawd golden`), so exclude it from the unit tiers -- an
+        # intended-change session should not fail `pyclawd test` on drift a human has yet to bless.
+        markers={
+            "fast": "not slow and not integration and not golden",
+            "default": "not slow and not golden",
+            "all": "",
+        },
     ),
     golden=GoldenConfig(
         # Slightly looser than the default 1e-9 to tolerate BLAS/platform float

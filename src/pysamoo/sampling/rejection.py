@@ -4,18 +4,18 @@ import numpy as np
 from pymoo.core.sampling import Sampling
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.util.misc import cdist
-from pymoo.util.normalization import normalize
 
 
-def select_points_with_maximum_distance(X, n_select, selected=[]):
+def select_points_with_maximum_distance(X, n_select, selected=None, random_state=None):
     n_points, n_dim = X.shape
 
     # calculate the distance matrix
     D = cdist(X, X)
 
-    # if no selection provided pick randomly in the beginning
-    if len(selected) == 0:
-        selected = [np.random.randint(len(X))]
+    # if no selection provided pick the first point (threading the run's RNG for reproducibility)
+    if not selected:
+        rng = random_state if random_state is not None else np.random
+        selected = [int(rng.integers(len(X)) if hasattr(rng, "integers") else rng.randint(len(X)))]
 
     # create variables to store what selected and what not
     not_selected = [i for i in range(n_points) if i not in selected]
@@ -40,30 +40,6 @@ def select_points_with_maximum_distance(X, n_select, selected=[]):
     return selected
 
 
-class CustomLHS(LHS):
-    def __init__(self, iterations=100, others=None, **kwargs) -> None:
-        super().__init__(iterations=iterations, **kwargs)
-        self.others = others
-        self.norm_others = None
-
-    def _do(self, problem, n_samples, **kwargs):
-
-        if self.others is not None:
-            xl, xu = problem.bounds()
-            self.norm_others = normalize(self.others, xl, xu)
-
-        return super()._do(problem, n_samples, **kwargs)
-
-    def _calc_score(self, X):
-        val = super()._calc_score(X)
-
-        if self.norm_others is not None and len(self.norm_others) > 0:
-            D = cdist(X, self.norm_others)
-            val = min(val, np.min(D))
-
-        return val
-
-
 class RejectionConstrainedSampling(Sampling):
     def __init__(self, func_eval_constr, batch_size=None, n_multiplier=2, max_iter=100):
         super().__init__()
@@ -72,7 +48,7 @@ class RejectionConstrainedSampling(Sampling):
         self.batch_size = batch_size
         self.func_eval_constr = func_eval_constr
 
-    def _do(self, problem, n_samples, **kwargs):
+    def _do(self, problem, n_samples, random_state=None, **kwargs):
 
         n_points = self.batch_size
         if n_points is None:
@@ -85,9 +61,9 @@ class RejectionConstrainedSampling(Sampling):
                 break
 
             else:
-                sampling = CustomLHS(others=ret)
+                sampling = LHS(iterations=100)
 
-                X = sampling.do(problem, n_points).get("X")
+                X = sampling.do(problem, n_points, random_state=random_state).get("X")
 
                 CV = self.func_eval_constr(X)
                 is_feasible = CV <= 0
@@ -96,7 +72,7 @@ class RejectionConstrainedSampling(Sampling):
                 ret = np.vstack([ret, X])
 
         if len(ret) > n_samples:
-            I = select_points_with_maximum_distance(ret, n_samples)
+            I = select_points_with_maximum_distance(ret, n_samples, random_state=random_state)
             ret = ret[I]
 
         return ret

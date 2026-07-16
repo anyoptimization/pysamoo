@@ -3,13 +3,11 @@
 from copy import deepcopy
 
 import numpy as np
-from pymoo.algorithms.soo.nonconvex.ga import FitnessSurvival
 from pymoo.core.population import Population
 from pymoo.util.display.single import SingleObjectiveOutput
-from pysurrogate.dace import Exponential
-from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.algorithms._ego import best_optimum, default_kriging
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.experimental.acquisition import LogEI
 
 
@@ -36,6 +34,9 @@ class TuRBO(SurrogateAssistedAlgorithm):
         acq_func: Acquisition scored over the trust-region candidates (default ``LogEI``).
     """
 
+    # manages its own single-objective Kriging -> skip the base default-surrogate build.
+    build_default_surrogate = False
+
     def __init__(
         self,
         n_candidates=None,
@@ -56,7 +57,7 @@ class TuRBO(SurrogateAssistedAlgorithm):
         self.length_max = length_max
         self.succ_tol = succ_tol
         self.fail_tol = fail_tol
-        self.surrogate_proto = surrogate if surrogate is not None else Kriging(corr=Exponential())
+        self.surrogate_proto = surrogate if surrogate is not None else default_kriging()
         self.acq_func = acq_func if acq_func is not None else LogEI()
         self.L = length_init
         self.success = 0
@@ -65,9 +66,7 @@ class TuRBO(SurrogateAssistedAlgorithm):
         self._model = None
 
     def _setup(self, problem, **kwargs):
-        # manages its own single-objective Kriging -> skip the base single-surrogate build.
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
+        super()._setup(problem, **kwargs)
         if self.n_candidates is None:
             self.n_candidates = min(1000, 100 * problem.n_var)
         if self.fail_tol is None:
@@ -134,4 +133,4 @@ class TuRBO(SurrogateAssistedAlgorithm):
             self._restart, self.success, self.failure = True, 0, 0
 
     def _set_optimum(self):
-        self.opt = FitnessSurvival().do(self.problem, self._archive, n_survive=1)
+        self.opt = best_optimum(self.problem, self._archive)

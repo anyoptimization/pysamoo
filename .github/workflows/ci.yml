@@ -46,7 +46,12 @@ jobs:
       - name: Type check (mypy)
         run: mypy
 
-      - name: Tests (incl. golden baselines, excludes slow)
+      - name: Tests (unit tiers, excludes slow and golden)
         env:
           MPLBACKEND: Agg
-        run: pytest -m "not slow"
+        run: pytest -m "not slow and not golden"
+
+      - name: Golden baselines (its own gate, excludes slow)
+        env:
+          MPLBACKEND: Agg
+        run: pytest -m "golden and not slow"

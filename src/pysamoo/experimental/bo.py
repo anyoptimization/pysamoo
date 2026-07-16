@@ -11,7 +11,7 @@ from pymoo.util.display.single import SingleObjectiveOutput
 from pysurrogate.dace import Exponential
 from pysurrogate.models import Kriging
 
-from pysamoo.core.algorithm import SurrogateAssistedAlgorithm, default_n_doe
+from pysamoo.core.algorithm import SurrogateAssistedAlgorithm
 from pysamoo.experimental.acquisition import AcquisitionProblem, LogEI
 from pysamoo.experimental.infill import GlobalEI, Hybrid
 from pysamoo.experimental.optimizer import VectorizedGradientDescent
@@ -61,6 +61,9 @@ def default_surrogate():
 
 
 class BayesianOptimization(SurrogateAssistedAlgorithm):
+    # uses its own pysurrogate surrogate (fit lazily in _infill) -> skip the base build.
+    build_default_surrogate = False
+
     def __init__(
         self,
         acq_func=LogEI(),
@@ -106,12 +109,6 @@ class BayesianOptimization(SurrogateAssistedAlgorithm):
 
         # the fitted surrogate for the current infill (set lazily in _infill by get_model()).
         self._model = None
-
-    def _setup(self, problem, **kwargs):
-        # BO uses its own pysurrogate surrogate (fit lazily in _infill); it never uses the base
-        # class's surrogate layer, so skip building it and only fix the initial DOE size.
-        if self.n_initial_doe is None:
-            self.n_initial_doe = min(self.n_initial_max_doe, default_n_doe(problem.n_var))
 
     def _infill(self):
 

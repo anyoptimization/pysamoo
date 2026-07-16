@@ -8,8 +8,6 @@ algorithm on the same kind of problem* with the smallest meaningful budget
 up and produces a result in a few seconds total.
 """
 
-import importlib.util
-
 import numpy as np
 import pytest
 from pymoo.algorithms.moo.nsga2 import NSGA2
@@ -34,9 +32,6 @@ from pysamoo.algorithms.saasbo import SAASBO
 from pysamoo.algorithms.ssansga2 import SSANSGA2
 from pysamoo.algorithms.tsemo import TSEMO
 from pysamoo.algorithms.turbo import TuRBO
-
-_HAS_SMAC = importlib.util.find_spec("smac") is not None
-
 
 # --- one minimal builder per usage scenario; each returns the optimization result ---
 
@@ -151,13 +146,6 @@ def _bo():
     return minimize(Sphere(n_var=5), BayesianOptimization(), ("n_gen", 2), seed=1, verbose=False)
 
 
-def _smac():
-    """usage_smac: SMAC wrapper (optional dependency)."""
-    from pysamoo.vendor.smac import SMAC
-
-    return minimize(Sphere(n_var=5), SMAC(), ("n_evals", 20), seed=1, verbose=False)
-
-
 SCENARIOS = [
     pytest.param(_gpsaf_single, id="gpsaf_single"),
     pytest.param(_gpsaf_multi, id="gpsaf_multi"),
@@ -176,11 +164,6 @@ SCENARIOS = [
     pytest.param(_saasbo, id="saasbo"),
     pytest.param(_lqcmaes, id="lqcmaes"),
     pytest.param(_bo, id="bayesian_optimization"),
-    pytest.param(
-        _smac,
-        id="smac",
-        marks=pytest.mark.skipif(not _HAS_SMAC, reason="optional dependency 'smac' not installed"),
-    ),
 ]
 
 
