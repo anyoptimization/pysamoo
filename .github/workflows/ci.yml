@@ -23,14 +23,15 @@ jobs:
           cache: pip
 
       # The surrogate stack (pysurrogate/pydacefit/pysampling/ezmodel) is not yet released to PyPI
-      # with the APIs this branch needs (e.g. pydacefit.regr.ConstantRegression), so install the
-      # required states from git. TODO: pin to released versions once the stack is published.
+      # with the APIs this project needs (e.g. pydacefit.regr.ConstantRegression), so install the
+      # required states from git -- all from their main branches now that the surrogate work has
+      # landed there. TODO: pin to released versions once the stack is published.
       - name: Install unreleased surrogate dependencies from git
         run: |
           python -m pip install --upgrade pip
           pip install "git+https://github.com/anyoptimization/pysampling"
           pip install "git+https://github.com/anyoptimization/ezmodel@main"
-          pip install "git+https://github.com/anyoptimization/pysurrogate@feat/fully-bayesian-gp"
+          pip install "git+https://github.com/anyoptimization/pysurrogate@main"
           pip install --force-reinstall --no-deps "git+https://github.com/msu-coinlab/pydacefit@main"
 
       - name: Install package and dev tools
