@@ -1,38 +1,45 @@
+import os
+
 import setuptools
 
-from pysamoo.version import __version__
+# Read the version without importing the package (src/ layout: package not on
+# sys.path at build time).
+__version__ = {}
+with open(os.path.join("src", "pysamoo", "version.py")) as f:
+    exec(f.read(), __version__)
+__version__ = __version__["__version__"]
 
 # ---------------------------------------------------------------------------------------------------------
 # GENERAL
 # ---------------------------------------------------------------------------------------------------------
 
 
-__name__ = "pysamoo"
-__author__ = "Julian Blank"
-__url__ = "https://anyoptimization.com/projects/pysamoo/"
+name = "pysamoo"
+author = "Julian Blank"
+url = "https://anyoptimization.com/projects/pysamoo/"
 
 data = dict(
-    name=__name__,
+    name=name,
     version=__version__,
-    author=__author__,
-    url=__url__,
-    python_requires='>=3.7',
+    author=author,
+    url=url,
+    python_requires='>=3.10',
     author_email="blankjul@msu.edu",
     description="Surrogate-Assisted Multi-objective Optimization",
-    license='GNU AFFERO GENERAL PUBLIC LICENSE (AGPL)',
+    license='PolyForm Noncommercial License 1.0.0',
     keywords="surrogate, metamodel, bayesian optimization",
-    install_requires=["pymoo==0.6.1.1", "ezmodel"],
+    install_requires=["pymoo>=0.6.1.5,<0.6.2", "ezmodel"],
+    extras_require={
+        "dev": ["ruff", "mypy", "pytest", "pytest-xdist", "pytest-cov"],
+    },
     platforms='any',
     classifiers=[
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'Operating System :: OS Independent',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: Other/Proprietary License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Topic :: Scientific/Engineering',
@@ -53,11 +60,8 @@ def readme():
         return f.read()
 
 
-def packages():
-    return ["pysamoo"] + ["pysamoo." + e for e in setuptools.find_packages(where='pysamoo')]
-
-
 data['long_description'] = readme()
-data['packages'] = packages()
+data['package_dir'] = {'': 'src'}
+data['packages'] = setuptools.find_packages(where='src')
 
 setuptools.setup(**data)

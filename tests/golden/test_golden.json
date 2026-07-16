@@ -1,0 +1,30 @@
+{
+  "test_golden_indicators": {
+    "atol": 1e-10,
+    "hash": "sha256:24f629a9e4683677c851f4d1aef42828b631d42fb7ffdc2de3470cf08d3caf55",
+    "rtol": 1e-07,
+    "value": {
+      "kendall_tau": 566.0,
+      "mae": 0.0783186274,
+      "mse": 0.0089228565,
+      "r2": 0.8796301685,
+      "rmse": 0.0944608729,
+      "sign_error": 0.06
+    }
+  },
+  "test_golden_total_constraint_violation": {
+    "atol": 1e-10,
+    "hash": "sha256:ba2b18485d14c2af7c1fefc172bb463d0fdc8f7363ef47b093f2489d8f35df7d",
+    "rtol": 1e-07,
+    "value": [
+      0.6417458344,
+      0.3847734578,
+      0.5723788813,
+      0.5100644431,
+      0.5331895568,
+      0.136742146,
+      0.3953110014,
+      0.9900910214
+    ]
+  }
+}
