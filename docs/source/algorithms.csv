@@ -10,9 +10,9 @@ Algorithm,Framework,multi-objective,constrained,Description
 `GPSAF-NSGA-III <#GPSAF-NSGA-III>`_,GPSAF,yes,yes,An extension of GPSAF-NSGA-II for many-objective optimization problems.
 `ParEGO <#ParEGO>`_,ParEGO,yes,no,EGO on a per-iteration random augmented-Tchebycheff scalarization with Expected Improvement.
 `EHVI <#EHVI>`_,EHVI,yes,no,Monte-Carlo Expected Hypervolume Improvement Bayesian optimization.
-`MOEA/D-EGO <#Bayesian-Optimization-Algorithms>`_,MOEADEGO,yes,no,Decomposition-based efficient global optimization with a batch infill per iteration.
-`TSEMO <#Bayesian-Optimization-Algorithms>`_,TSEMO,yes,no,Thompson-sampling efficient multi-objective optimization.
+`MOEA/D-EGO <#MOEA/D-EGO>`_,MOEADEGO,yes,no,Decomposition-based efficient global optimization with a batch infill per iteration.
+`TSEMO <#TSEMO>`_,TSEMO,yes,no,Thompson-sampling efficient multi-objective optimization.
 `K-RVEA <#K-RVEA>`_,KRVEA,yes,no,Kriging-assisted reference-vector guided EA with an adaptive diversity/uncertainty infill.
-`CSEA <#Bayesian-Optimization-Algorithms>`_,CSEA,yes,no,A classification surrogate that screens offspring for evaluation.
+`CSEA <#CSEA>`_,CSEA,yes,no,A classification surrogate that screens offspring for evaluation.
 `TuRBO <#TuRBO>`_,TuRBO,no,no,Trust-region Bayesian optimization for higher-dimensional single-objective problems.
-`SAASBO <#Bayesian-Optimization-Algorithms>`_,SAASBO,no,no,Sparse axis-aligned-subspace Bayesian optimization for high-dimensional problems.
+`SAASBO <#SAASBO>`_,SAASBO,no,no,Sparse axis-aligned-subspace Bayesian optimization for high-dimensional problems.
