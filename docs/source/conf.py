@@ -38,6 +38,11 @@ extensions = [
     "sphinx_rtd_theme"
 ]
 
+# The notebook is pre-executed and its outputs are committed; render them as-is rather than
+# re-executing on every build (some examples run full optimizations). Use `pyclawd docs exec`
+# to regenerate the stored outputs deliberately.
+nbsphinx_execute = 'never'
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
