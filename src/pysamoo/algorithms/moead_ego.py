@@ -60,19 +60,53 @@ class MOEADEGO(SurrogateAssistedAlgorithm):
 
         # optimistic per-objective prediction (lower-confidence bound)
         mu, sigma = predict_mu_sigma(models, cand)
-        lcb = mu - self.kappa * sigma
-        z = lcb.min(axis=0)  # ideal-point estimate on the optimistic prediction
+        lcb = self.lcb(mu, sigma, self.kappa)
 
         # one point per (spread) weight vector by minimum Tchebycheff aggregation -> a diverse batch
         picks = np.linspace(0, len(self.ref_dirs) - 1, self.n_infills).round().astype(int)
+        chosen = self.select_by_decomposition(lcb, self.ref_dirs[picks])
+        return Population.new(X=cand[chosen])
+
+    @staticmethod
+    def lcb(mu, sigma, kappa):
+        """The optimistic lower-confidence-bound prediction ``mu - kappa * sigma`` (the acquisition).
+
+        Exposed as a static method so the acquisition can be checked directly in the fidelity tests.
+
+        Args:
+            mu: Predicted objective means, shape ``(n, n_obj)``.
+            sigma: Predictive standard deviations, shape ``(n, n_obj)``.
+            kappa: Exploration weight on the uncertainty.
+
+        Returns:
+            The lower-confidence bound ``mu - kappa * sigma``.
+        """
+        return mu - kappa * sigma
+
+    @staticmethod
+    def select_by_decomposition(lcb, weights):
+        """Pick one distinct candidate per weight by minimum Tchebycheff aggregation of the LCB.
+
+        This is MOEA/D-EGO's decomposition step: each weight vector defines a scalarization
+        ``max_k(w_k * (lcb_k - z_k))`` (with ``z`` the estimated ideal point), and the candidate
+        minimizing it is selected -- yielding a spread batch. Exposed for the fidelity tests.
+
+        Args:
+            lcb: The lower-confidence-bound predictions, shape ``(n, n_obj)``.
+            weights: The weight vectors to decompose along, shape ``(m, n_obj)``.
+
+        Returns:
+            A list of distinct candidate indices, one per weight.
+        """
+        z = lcb.min(axis=0)  # ideal-point estimate on the optimistic prediction
         chosen: list = []
-        for w in self.ref_dirs[picks]:
+        for w in weights:
             g = (w * (lcb - z)).max(axis=1)
             for i in np.argsort(g):
                 if int(i) not in chosen:
                     chosen.append(int(i))
                     break
-        return Population.new(X=cand[chosen])
+        return chosen
 
     def _set_optimum(self):
         self.opt = pareto_optimum(self._archive)
