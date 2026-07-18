@@ -94,7 +94,36 @@ class KRVEA(SurrogateAssistedAlgorithm):
         self._active_prev = active
 
         u = min(self.n_infills, len(Xc))
-        if changed > self.delta:
+        sel = self.select_infills(assign, cos, sigma, active, changed, self.delta, u)
+
+        return Population.new(X=Xc[sel])
+
+    @staticmethod
+    def select_infills(assign, cos, sigma, active, changed, delta, u):
+        """K-RVEA's adaptive infill selection: diversity when the front moves, else convergence.
+
+        The two K-RVEA criteria, switched by how much the active-reference-vector set changed:
+
+        * **diversity** (``changed > delta``): the best-aligned candidate per distinct active
+          reference vector, topping the batch up with the most uncertain candidates so it always
+          fills ``u`` evaluations;
+        * **convergence** (otherwise): the ``u`` candidates with the highest predictive uncertainty.
+
+        Exposed as a static method so both regimes can be exercised directly in the fidelity tests.
+
+        Args:
+            assign: The reference vector each candidate is associated with, shape ``(n,)``.
+            cos: Cosine of the angle between each candidate and each reference vector, shape ``(n, m)``.
+            sigma: Summed predictive uncertainty per candidate, shape ``(n,)``.
+            active: The set of reference-vector indices that have an associated candidate.
+            changed: Fraction of the active set that changed since the last iteration.
+            delta: The switch threshold.
+            u: The number of infills to select.
+
+        Returns:
+            The selected candidate indices, an ``int`` array of length ``min(u, n)``.
+        """
+        if changed > delta:
             # diversity: best-aligned candidate per distinct active reference vector
             picks = []
             for rv in sorted(active):
@@ -111,12 +140,9 @@ class KRVEA(SurrogateAssistedAlgorithm):
                         sel.append(int(i))
                         if len(sel) == u:
                             break
-            sel = np.array(sel, dtype=int)
-        else:
-            # convergence: the u candidates the models are least certain about
-            sel = np.argsort(-sigma)[:u]
-
-        return Population.new(X=Xc[sel])
+            return np.array(sel, dtype=int)
+        # convergence: the u candidates the models are least certain about
+        return np.argsort(-sigma)[:u]
 
     def _set_optimum(self):
         self.opt = pareto_optimum(self._archive)
